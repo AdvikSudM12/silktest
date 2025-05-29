@@ -21,6 +21,8 @@ GoSilk Uploader - это приложение, предназначенное д
 
 ## Интерфейс пользователя
 
+Скриншоты здесь: https://drive.google.com/drive/folders/1PkF5SlnrxzSaPE9t77GwuzoYSyVc5uYG?usp=sharing
+
 Интерфейс GoSilk Uploader разделен на несколько основных секций:
 
 ### Меню
