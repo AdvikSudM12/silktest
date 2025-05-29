@@ -1,0 +1,41 @@
+{
+  "name": "gosilk-staff",
+  "version": "1.0.0",
+  "main": "./src/app.js",
+  "license": "MIT",
+  "scripts": {
+    "start:mailing-old-users-documents": "ts-node ./src/apps/mailing-old-users-documents",
+    "start:user-documents-migration": "ts-node ./src/apps/user-documents-migration",
+    "start:parse-users-to-table": "ts-node ./src/apps/parse-users-to-table",
+    "start:get-links-for-update-permissions": "ts-node ./src/apps/get-links-for-update-permissions",
+    "start:tribal-fix-releases": "ts-node ./src/apps/tribal-fix-releases",
+    "start:update-releases-shipment-statuses": "ts-node ./src/apps/update-releases-shipment-statuses",
+    "start:release-parser-1": "ts-node ./src/apps/release-parser-1",
+    "start:release-parser-2": "ts-node ./src/apps/release-parser-2",
+    "start:release-parser-3": "ts-node ./src/apps/release-parser-3",
+    "start:release-parser-4": "ts-node ./src/apps/release-parser-4",
+    "start:release-parser-5": "ts-node ./src/apps/release-parser-5"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "blob": "^0.1.0",
+    "convert-csv-to-json": "^2.48.0",
+    "convert-excel-to-json": "^1.7.0",
+    "dayjs": "^1.11.11",
+    "dotenv": "^16.4.5",
+    "fs": "^0.0.1-security",
+    "mime-type": "^4.0.0",
+    "tsconfig-paths": "^4.2.0",
+    "tus-js-client": "^4.1.0"
+  },
+  "_moduleAliases": {
+    "src": "./src"
+  },
+  "devDependencies": {
+    "@types/convert-excel-to-json": "^1.7.4",
+    "@types/node": "^20.12.11",
+    "ts-node": "^10.9.2",
+    "tsc-alias": "^1.8.10",
+    "typescript": "^5.7.3"
+  }
+}

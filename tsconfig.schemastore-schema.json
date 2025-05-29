@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "tsBuildInfoFile": null,
+    "noEmit": false,
+    "allowJs": true,
+    "checkJs": false,
+  }
+}
