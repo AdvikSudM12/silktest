@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QS
 from PyQt6.QtCore import Qt
 
 # Импортируем наши компоненты
-from components import TabBar
-from pages import UploadPage, AnalyticsPage, HelpPage, SettingsPage
+from pyqt_app.components import TabBar
+from pyqt_app.pages import UploadPage, AnalyticsPage, HelpPage, SettingsPage
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -42,8 +42,8 @@ class MainWindow(QMainWindow):
         # Создаем страницы для вкладок
         self.setup_pages()
         
-        # Устанавливаем активную вкладку АНАЛИТИКА как на скриншоте
-        self.tab_bar.set_active_tab(1)
+        # Устанавливаем активную вкладку ПОМОЩЬ для проверки
+        self.tab_bar.set_active_tab(2)
     
     def setup_pages(self):
         """Создание и настройка страниц для каждой вкладки"""

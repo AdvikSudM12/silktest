@@ -178,3 +178,31 @@ env/
 # Script results
 results/
 *.xlsx
+
+# Виртуальное окружение
+venv/
+env/
+.env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Локальные настройки IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Другие файлы
+.DS_Store
+Thumbs.db
+*.log
