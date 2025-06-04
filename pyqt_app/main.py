@@ -42,8 +42,8 @@ class MainWindow(QMainWindow):
         # Создаем страницы для вкладок
         self.setup_pages()
         
-        # Устанавливаем активную вкладку ПОМОЩЬ для проверки
-        self.tab_bar.set_active_tab(2)
+        # Устанавливаем активную вкладку ЗАГРУЗКА (индекс 0)
+        self.tab_bar.set_active_tab(0)
     
     def setup_pages(self):
         """Создание и настройка страниц для каждой вкладки"""
