@@ -3,7 +3,7 @@
 
 from PyQt6.QtWidgets import (
     QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
-    QWidget, QFrame, QComboBox, QLineEdit, QScrollArea
+    QWidget, QFrame, QComboBox, QLineEdit, QScrollArea, QDialog
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -87,7 +87,6 @@ class SettingsPage(BasePage):
             font-weight: bold;
             color: #6352EC;
             margin-bottom: 15px;
-            text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
         """)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scroll_content_layout.addWidget(title_label)
@@ -541,8 +540,10 @@ class SettingsPage(BasePage):
     def cancel_settings(self):
         """Отмена изменений"""
         # Возвращаемся на предыдущую страницу
+        # Для совместимости с диалоговым окном проверяем, есть ли атрибут content_stack
         main_window = self.window()
-        main_window.content_stack.setCurrentIndex(0)  # Переход на страницу загрузки
+        if hasattr(main_window, 'content_stack'):
+            main_window.content_stack.setCurrentIndex(0)  # Переход на страницу загрузки
 
     def delete_current_template(self):
         """Удаление текущего выбранного шаблона"""
@@ -627,4 +628,146 @@ class SettingsPage(BasePage):
                 self,
                 "Файл не найден",
                 "Файл шаблонов не найден."
+            )
+
+class SettingsDialog(QDialog):
+    """
+    Диалоговое окно настроек
+    
+    Отображает настройки в отдельном окне вместо переключения страниц
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Настройки")
+        self.resize(800, 800)  # Увеличиваем размер окна
+        
+        # Настройка основного layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)  # Добавляем отступы
+        main_layout.setSpacing(10)  # Увеличиваем расстояние между элементами
+        
+        # Создаем экземпляр страницы настроек
+        self.settings_page = SettingsPage(self)
+        
+        # Отключаем обработчик cancel_settings
+        self.original_cancel = self.settings_page.cancel_settings
+        
+        # Находим кнопку "ОТМЕНА" и перепривязываем ее напрямую к закрытию диалога
+        # Проходим по всем виджетам страницы
+        for widget in self.settings_page.findChildren(QPushButton):
+            if widget.text() == "ОТМЕНА":
+                # Отключаем старый обработчик
+                widget.clicked.disconnect()
+                # Привязываем новый обработчик
+                widget.clicked.connect(self.close)
+                break
+        
+        # Переопределяем метод save_settings, чтобы закрывать диалог после сохранения
+        self.original_save = self.settings_page.save_settings
+        # Используем тот же подход для корректного привязывания self
+        def custom_save():
+            self.save_and_close()
+        self.settings_page.save_settings = custom_save
+        
+        # Создаем scroll area для страницы настроек
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.settings_page)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: white;
+            }
+            QScrollBar:vertical {
+                background: #f0f0f0;
+                width: 12px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #d0d0d0;
+                min-height: 20px;
+                border-radius: 6px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: transparent;
+            }
+        """)
+        
+        # Добавляем scroll area в layout
+        main_layout.addWidget(scroll_area)
+        
+        # Настройка оформления
+        self.setStyleSheet("""
+            QDialog {
+                background-color: white;
+            }
+        """)
+
+    def close_dialog(self):
+        """Закрывает диалоговое окно без сохранения настроек"""
+        # Просто закрываем диалог
+        self.close()
+    
+    def save_and_close(self):
+        """Сохраняет настройки и закрывает диалоговое окно"""
+        # Вызываем оригинальный метод save_settings
+        # Но не используем self.original_save напрямую, так как это может вызвать ошибку
+        # из-за обращения к несуществующему атрибуту content_stack
+        
+        # Получаем значения из полей
+        user_id = self.settings_page.user_id_input.text().strip()
+        jwt = self.settings_page.jwt_input.text().strip()
+        
+        # Проверяем, что поля не пустые
+        if not user_id or not jwt:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Недостаточно данных",
+                "Пожалуйста, заполните оба поля: токен кабинета и API токен."
+            )
+            return
+        
+        # Сохраняем текущие настройки в файл конфигурации
+        import json
+        import os
+        from datetime import datetime
+        
+        # Создаем директорию для данных, если её нет
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        os.makedirs(data_dir, exist_ok=True)
+        
+        config_path = os.path.join(data_dir, "config.json")
+        
+        # Создаем или обновляем конфигурационный файл
+        config = {
+            "user_id": user_id,
+            "jwt": jwt,
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        try:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, ensure_ascii=False, indent=4)
+                
+            # Показываем сообщение об успешном сохранении
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                "Сохранение настроек",
+                "Настройки успешно сохранены."
+            )
+            
+            # Закрываем диалог
+            self.accept()
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Ошибка сохранения",
+                f"Не удалось сохранить настройки: {str(e)}"
             )

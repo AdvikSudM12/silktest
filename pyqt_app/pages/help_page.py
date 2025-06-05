@@ -90,7 +90,6 @@ class HelpPage(BasePage):
             color: #6352EC;
             font-size: 40px;
             font-weight: bold;
-            text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
         """)
         main_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(main_title)
@@ -154,7 +153,6 @@ class HelpPage(BasePage):
             color: #6352EC;
             font-size: 22px;
             font-weight: bold;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
         """)
         parent_layout.addWidget(section_title)
     

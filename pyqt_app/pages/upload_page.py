@@ -753,13 +753,13 @@ class UploadPage(BasePage):
             self.show_status('error', "Файлы не найдены. Пожалуйста, проверьте выбранную директорию.")
     
     def open_settings(self):
-        """Открытие настроек приложения"""
-        # Переключение на страницу настроек
-        # Получаем доступ к главному окну и переключаемся на вкладку настроек
-        main_window = self.window()
-        # Индекс 3 соответствует странице настроек в стеке
-        main_window.content_stack.setCurrentIndex(3)
-        main_window.tab_bar.buttons[3].setChecked(True)
+        """Открытие настроек приложения в отдельном окне"""
+        # Импортируем диалог настроек
+        from pyqt_app.pages.settings_page import SettingsDialog
+        
+        # Создаем и открываем диалоговое окно настроек
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.exec()
     
     def upload_files(self):
         """Загрузка файлов для обработки"""
