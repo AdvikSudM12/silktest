@@ -10,6 +10,22 @@ from PyQt6.QtGui import QFont, QResizeEvent
 
 from .base_page import BasePage
 
+class ContainerWithShadow(QFrame):
+    """Кастомный виджет-контейнер с эффектом тени"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("containerWithShadow")
+        self.setStyleSheet("""
+            #containerWithShadow {
+                background-color: white;
+                border-radius: 20px;
+                border-top: 1px solid #e0e0e0;
+                border-left: 1px solid #e0e0e0;
+                border-right: 4px solid #555555;
+                border-bottom: 4px solid #555555;
+            }
+        """)
+
 class HelpPage(BasePage):
     """
     Страница помощи
@@ -23,17 +39,13 @@ class HelpPage(BasePage):
         
     def setup_ui(self):
         """Настройка элементов интерфейса страницы помощи"""
-        # Основной контейнер с закругленными краями
-        main_container = QFrame()
-        main_container.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border-radius: 20px;
-                border: 1px solid #e0e0e0;
-            }
-        """)
+        # Установка белого фона для страницы
+        self.setStyleSheet("background-color: white;")
         
-        # Используем QVBoxLayout с минимальными отступами
+        # Основной контейнер с закругленными краями и тенью
+        main_container = ContainerWithShadow()
+        
+        # Основной layout
         main_layout = QVBoxLayout(main_container)
         main_layout.setContentsMargins(20, 15, 20, 15)
         main_layout.setSpacing(10)  # Уменьшаем расстояние между элементами
@@ -82,6 +94,9 @@ class HelpPage(BasePage):
         
         # Добавляем прокручиваемую область в основной layout
         self.layout.addWidget(scroll_area)
+        
+        # Устанавливаем отступы для основного layout
+        self.layout.setContentsMargins(20, 20, 20, 20)
         
         # Настраиваем обработку изменения размера
         self.resizeEvent = self.on_resize

@@ -6,10 +6,26 @@ from PyQt6.QtWidgets import (
     QWidget, QFrame, QFileDialog, QScrollArea, QListWidget, QListWidgetItem
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QIcon, QPixmap, QColor
+from PyQt6.QtGui import QFont, QIcon, QPixmap, QColor, QPainter, QPen
 
 from .base_page import BasePage
 from pyqt_app.resources.icons import get_excel_icon, get_folder_icon
+
+class ContainerWithShadow(QFrame):
+    """Кастомный виджет-контейнер с эффектом тени"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("containerWithShadow")
+        self.setStyleSheet("""
+            #containerWithShadow {
+                background-color: white;
+                border-radius: 20px;
+                border-top: 1px solid #e0e0e0;
+                border-left: 1px solid #e0e0e0;
+                border-right: 4px solid #555555;
+                border-bottom: 4px solid #555555;
+            }
+        """)
 
 class UploadPage(BasePage):
     """
@@ -26,27 +42,11 @@ class UploadPage(BasePage):
         
     def setup_ui(self):
         """Настройка элементов интерфейса страницы загрузки"""
-        # Создаем контейнер с рамкой и тенью, который будет содержать все элементы
-        main_container = QFrame()
-        main_container.setObjectName("mainContainer")
-        main_container.setStyleSheet("""
-            #mainContainer {
-                background-color: white;
-                border-radius: 20px;
-                border: 1px solid #e0e0e0;
-            }
-        """)
+        # Установка белого фона для страницы
+        self.setStyleSheet("background-color: white;")
         
-        # Установка тени для контейнера через графический эффект
-        # (В PyQt6 нужно использовать QGraphicsDropShadowEffect, 
-        # но здесь для простоты используем черную рамку)
-        main_container.setStyleSheet("""
-            QFrame#mainContainer {
-                background-color: white;
-                border-radius: 20px;
-                border: 1px solid #e0e0e0;
-            }
-        """)
+        # Создаем контейнер с рамкой и тенью, который будет содержать все элементы
+        main_container = ContainerWithShadow()
         
         # Создаем layout для контейнера
         container_layout = QVBoxLayout(main_container)
@@ -103,6 +103,7 @@ class UploadPage(BasePage):
                 padding: 10px 20px;
                 font-weight: bold;
                 max-width: 200px;
+                border: 1px solid #5143c9;
             }
             QPushButton:hover {
                 background-color: #5143c9;
@@ -169,6 +170,7 @@ class UploadPage(BasePage):
                 padding: 10px 20px;
                 font-weight: bold;
                 max-width: 250px;
+                border: 1px solid #5143c9;
             }
             QPushButton:hover {
                 background-color: #5143c9;
@@ -189,21 +191,38 @@ class UploadPage(BasePage):
         
         container_layout.addWidget(folder_button_container)
         
-        # Список выбранных файлов (видимый только после выбора директории)
+        # Создаем контейнер для списка файлов
         self.files_list_container = QFrame()
         self.files_list_container.setStyleSheet("""
             QFrame {
                 background-color: #f5f0ff;
                 border-radius: 10px;
-                padding: 10px;
             }
         """)
         files_list_layout = QVBoxLayout(self.files_list_container)
+        files_list_layout.setContentsMargins(15, 15, 15, 15)
         
         # Заголовок для списка файлов
-        files_list_title = QLabel("Выбрано файлов: 0")
-        files_list_title.setStyleSheet("font-weight: bold; font-size: 16px;")
-        files_list_layout.addWidget(files_list_title)
+        self.files_list_title = QLabel("")
+        self.files_list_title.setStyleSheet("font-weight: bold; font-size: 16px;")
+        files_list_layout.addWidget(self.files_list_title)
+        
+        # Создаем прокручиваемую область для списка файлов
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                background-color: transparent;
+                border: none;
+            }
+        """)
+        
+        # Контейнер для списка файлов
+        files_list_widget = QWidget()
+        files_list_widget.setStyleSheet("background-color: transparent;")
+        files_list_widget_layout = QVBoxLayout(files_list_widget)
+        files_list_widget_layout.setContentsMargins(0, 0, 0, 0)
+        files_list_widget_layout.setSpacing(8)
         
         # Список файлов
         self.files_list = QListWidget()
@@ -212,8 +231,17 @@ class UploadPage(BasePage):
                 background-color: transparent;
                 border: none;
             }
+            QListWidget::item {
+                padding: 5px 0;
+            }
         """)
-        files_list_layout.addWidget(self.files_list)
+        files_list_widget_layout.addWidget(self.files_list)
+        
+        # Устанавливаем виджет в прокручиваемую область
+        scroll_area.setWidget(files_list_widget)
+        
+        # Добавляем прокручиваемую область в контейнер
+        files_list_layout.addWidget(scroll_area)
         
         # По умолчанию скрываем контейнер со списком файлов
         self.files_list_container.setVisible(False)
@@ -221,13 +249,31 @@ class UploadPage(BasePage):
         # Добавляем контейнер со списком файлов
         container_layout.addWidget(self.files_list_container)
         
-        # Добавляем разделительную линию
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setStyleSheet("background-color: #e0e0e0;")
-        separator.setFixedHeight(1)
-        container_layout.addWidget(separator)
+        # Кнопка "Проверьте файлы"
+        check_files_header = QWidget()
+        check_files_layout = QHBoxLayout(check_files_header)
+        check_files_layout.setContentsMargins(0, 10, 0, 0)
+        check_files_layout.setSpacing(10)
+        
+        # Иконка графика
+        chart_icon_label = QLabel("📊")
+        chart_icon_label.setStyleSheet("font-size: 24px;")
+        
+        # Текст-метка
+        check_files_label = QLabel("Проверьте файлы")
+        check_files_label.setStyleSheet("""
+            color: #6352EC;
+            font-size: 16px;
+            font-weight: bold;
+        """)
+        
+        # Добавляем иконку и текст в контейнер
+        check_files_layout.addWidget(chart_icon_label)
+        check_files_layout.addWidget(check_files_label)
+        check_files_layout.addStretch()
+        
+        # Добавляем контейнер с заголовком
+        container_layout.addWidget(check_files_header)
         
         # Добавляем растяжку, чтобы содержимое было в верхней части
         container_layout.addStretch()
@@ -267,28 +313,39 @@ class UploadPage(BasePage):
             # Сохраняем путь к директории
             self.directory_path = directory
             
-            # Имитируем загрузку и отображение списка файлов из директории
-            import os
-            
             # Очищаем текущий список
             self.files_list.clear()
             
             # Получаем список Excel файлов в директории
+            import os
             excel_files = []
+            
             try:
-                for file in os.listdir(directory):
-                    if file.endswith('.xlsx') or file.endswith('.xls'):
-                        excel_files.append(file)
-            except:
-                pass
+                # Получаем все файлы в директории
+                all_files = os.listdir(directory)
+                
+                # Фильтруем только Excel файлы
+                excel_files = [file for file in all_files if file.endswith('.xlsx') or file.endswith('.xls')]
+            except Exception as e:
+                print(f"Ошибка при чтении директории: {e}")
+                excel_files = []
             
             # Заполняем список файлов
             for file in excel_files:
                 self.files_list.addItem(file)
                 
             # Обновляем заголовок со счетчиком файлов
-            files_count_title = self.files_list_container.layout().itemAt(0).widget()
-            files_count_title.setText(f"Выбрано файлов: {len(excel_files)}")
+            self.files_list_title.setText(f"Выбрано файлов: {len(excel_files)}")
             
-            # Показываем контейнер со списком файлов
-            self.files_list_container.setVisible(len(excel_files) > 0) 
+            # Показываем контейнер со списком файлов только если есть файлы
+            if excel_files:
+                self.files_list_container.setVisible(True)
+            else:
+                # Если файлов нет, скрываем контейнер и показываем сообщение
+                self.files_list_container.setVisible(False)
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    "Файлы не найдены",
+                    f"В выбранной директории не найдены Excel файлы.\nПожалуйста, выберите другую директорию."
+                ) 
