@@ -759,7 +759,7 @@ class UploadPage(BasePage):
         main_window = self.window()
         # Индекс 3 соответствует странице настроек в стеке
         main_window.content_stack.setCurrentIndex(3)
-        main_window.sidebar.tab_buttons[3].setChecked(True)
+        main_window.tab_bar.buttons[3].setChecked(True)
     
     def upload_files(self):
         """Загрузка файлов для обработки"""
