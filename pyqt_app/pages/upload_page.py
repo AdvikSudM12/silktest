@@ -579,45 +579,42 @@ class UploadPage(BasePage):
             # Очищаем текущий список
             self.files_list.clear()
             
-            # Получаем список Excel файлов в директории
+            # Получаем список всех файлов в директории
             import os
-            excel_files = []
+            files = []
             
             try:
                 # Получаем все файлы в директории
-                all_files = os.listdir(directory)
-                
-                # Фильтруем только Excel файлы
-                excel_files = [file for file in all_files if file.endswith('.xlsx') or file.endswith('.xls')]
+                files = [file for file in os.listdir(directory) if os.path.isfile(os.path.join(directory, file))]
             except Exception as e:
                 print(f"Ошибка при чтении директории: {e}")
-                excel_files = []
+                files = []
             
             # Заполняем список файлов
-            for file in excel_files:
+            for file in files:
                 self.files_list.addItem(file)
                 
             # Обновляем заголовок со счетчиком файлов
-            self.files_list_title.setText(f"Выбрано файлов: {len(excel_files)}")
+            self.files_list_title.setText(f"Выбрано файлов: {len(files)}")
             
             # Обновляем счетчик файлов в другом месте интерфейса
-            self.files_count_label.setText(f"Всего файлов: {len(excel_files)}")
+            self.files_count_label.setText(f"Всего файлов: {len(files)}")
             
             # Показываем контейнер со списком файлов только если есть файлы
-            if excel_files:
+            if files:
                 self.files_list_container.setVisible(True)
                 # Показываем статус проверки
                 self.show_status('success', "Проверка файлов успешно завершена. Все файлы найдены!")
             else:
                 # Если файлов нет, скрываем контейнер и показываем сообщение
                 self.files_list_container.setVisible(False)
-                self.show_status('warning', "В выбранной директории не найдены Excel файлы. Пожалуйста, выберите другую директорию.")
+                self.show_status('warning', "В выбранной директории не найдены файлы. Пожалуйста, выберите другую директорию.")
                 from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.warning(
                     self,
                     "Файлы не найдены",
-                    f"В выбранной директории не найдены Excel файлы.\nПожалуйста, выберите другую директорию."
-                ) 
+                    f"В выбранной директории не найдены файлы.\nПожалуйста, выберите другую директорию."
+                )
 
     def show_status(self, status_type, message):
         """
@@ -722,33 +719,35 @@ class UploadPage(BasePage):
         # Показываем статус загрузки
         self.show_status('loading', "Проверка файлов, пожалуйста подождите...")
             
-        # Получаем список Excel файлов в директории
+        # Получаем список всех файлов в директории
         import os
-        excel_files = []
+        files = []
         
         try:
             # Получаем все файлы в директории
-            all_files = os.listdir(self.directory_path)
-            
-            # Фильтруем только Excel файлы
-            excel_files = [file for file in all_files if file.endswith('.xlsx') or file.endswith('.xls')]
+            files = [file for file in os.listdir(self.directory_path) if os.path.isfile(os.path.join(self.directory_path, file))]
         except Exception as e:
             print(f"Ошибка при чтении директории: {e}")
-            excel_files = []
+            files = []
         
         # Обновляем счетчик файлов
-        self.files_count_label.setText(f"Всего файлов: {len(excel_files)}")
+        self.files_count_label.setText(f"Всего файлов: {len(files)}")
         
         # Показываем контейнер со списком файлов если есть файлы
-        if excel_files:
+        if files:
             self.files_list_container.setVisible(True)
             # Обновляем заголовок со счетчиком файлов
-            self.files_list_title.setText(f"Выбрано файлов: {len(excel_files)}")
+            self.files_list_title.setText(f"Выбрано файлов: {len(files)}")
+            
+            # Очищаем и заполняем список файлов
+            self.files_list.clear()
+            for file in files:
+                self.files_list.addItem(file)
         else:
             self.files_list_container.setVisible(False)
         
         # Показываем соответствующий статус проверки
-        if excel_files:
+        if files:
             self.show_status('success', "Проверка файлов успешно завершена. Все файлы найдены!")
         else:
             self.show_status('error', "Файлы не найдены. Пожалуйста, проверьте выбранную директорию.")

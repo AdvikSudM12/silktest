@@ -42,97 +42,129 @@ class HelpPage(BasePage):
         # Установка белого фона для страницы
         self.setStyleSheet("background-color: white;")
         
+        # Создаем основной scrollable контейнер для всего содержимого
+        main_scroll_area = QScrollArea()
+        main_scroll_area.setWidgetResizable(True)
+        main_scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: white;
+            }
+            QScrollBar:vertical {
+                background: #f0f0f0;
+                width: 10px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #d0d0d0;
+                min-height: 20px;
+                border-radius: 5px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: transparent;
+            }
+        """)
+        
+        # Создаем виджет для размещения всего содержимого
+        scroll_content = QWidget()
+        scroll_content_layout = QVBoxLayout(scroll_content)
+        scroll_content_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Устанавливаем виджет в прокручиваемую область
+        main_scroll_area.setWidget(scroll_content)
+        
         # Основной контейнер с закругленными краями и тенью
         main_container = ContainerWithShadow()
         
         # Основной layout
         main_layout = QVBoxLayout(main_container)
-        main_layout.setContentsMargins(20, 15, 20, 15)
+        main_layout.setContentsMargins(30, 30, 30, 30)
         main_layout.setSpacing(10)  # Уменьшаем расстояние между элементами
         
         # 1. Добавляем заголовок "ПОМОЩЬ"
         main_title = QLabel("ПОМОЩЬ")
         main_title.setStyleSheet("""
             color: #6352EC;
-            font-size: 32px;
+            font-size: 40px;
             font-weight: bold;
+            text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
         """)
         main_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(main_title)
         
-        # Создаем контейнер для основного содержимого, чтобы он мог масштабироваться
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(10)
-        
         # 2. Добавляем секцию "КАК ПОЛЬЗОВАТЬСЯ ПРИЛОЖЕНИЕМ"
-        self.add_usage_instructions(content_layout)
+        self.add_section_title(main_layout, "КАК ПОЛЬЗОВАТЬСЯ ПРИЛОЖЕНИЕМ")
         
-        # 3. Добавляем секцию "ТРЕБОВАНИЯ К ФАЙЛАМ"
-        self.add_file_requirements(content_layout)
+        # Добавляем полноразмерную линию под заголовком "КАК ПОЛЬЗОВАТЬСЯ ПРИЛОЖЕНИЕМ"
+        section_line1 = QFrame()
+        section_line1.setFrameShape(QFrame.Shape.HLine)
+        section_line1.setFrameShadow(QFrame.Shadow.Sunken)
+        section_line1.setStyleSheet("background-color: #e0e0e0;")
+        section_line1.setFixedHeight(1)
+        main_layout.addWidget(section_line1)
         
-        # 4. Добавляем секцию "РЕШЕНИЕ ПРОБЛЕМ"
-        self.add_troubleshooting(content_layout)
+        # Добавляем контент для секции "КАК ПОЛЬЗОВАТЬСЯ ПРИЛОЖЕНИЕМ"
+        self.add_usage_instructions_content(main_layout)
         
-        # Добавляем контент в основной layout с возможностью растягивания
-        main_layout.addWidget(content_widget, 1)  # 1 = stretch factor
+        # Добавляем секцию "ТРЕБОВАНИЯ К ФАЙЛАМ"
+        self.add_section_title(main_layout, "ТРЕБОВАНИЯ К ФАЙЛАМ")
         
-        # Создаем прокручиваемую область для контента (на случай, если все же не поместится)
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        scroll_area.setWidget(main_container)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # Добавляем полноразмерную линию под заголовком "ТРЕБОВАНИЯ К ФАЙЛАМ"
+        section_line2 = QFrame()
+        section_line2.setFrameShape(QFrame.Shape.HLine)
+        section_line2.setFrameShadow(QFrame.Shadow.Sunken)
+        section_line2.setStyleSheet("background-color: #e0e0e0;")
+        section_line2.setFixedHeight(1)
+        main_layout.addWidget(section_line2)
         
-        # По умолчанию скрываем вертикальную полосу прокрутки, но оставляем возможность прокрутки при необходимости
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # Добавляем контент для секции "ТРЕБОВАНИЯ К ФАЙЛАМ"
+        self.add_file_requirements_content(main_layout)
         
-        # Устанавливаем политику размера для автоматического масштабирования
-        main_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        # Добавляем секцию "РЕШЕНИЕ ПРОБЛЕМ"
+        self.add_section_title(main_layout, "РЕШЕНИЕ ПРОБЛЕМ")
         
-        # Добавляем прокручиваемую область в основной layout
-        self.layout.addWidget(scroll_area)
+        # Добавляем полноразмерную линию под заголовком "РЕШЕНИЕ ПРОБЛЕМ"
+        section_line3 = QFrame()
+        section_line3.setFrameShape(QFrame.Shape.HLine)
+        section_line3.setFrameShadow(QFrame.Shadow.Sunken)
+        section_line3.setStyleSheet("background-color: #e0e0e0;")
+        section_line3.setFixedHeight(1)
+        main_layout.addWidget(section_line3)
+        
+        # Добавляем контент для секции "РЕШЕНИЕ ПРОБЛЕМ"
+        self.add_troubleshooting_content(main_layout)
+        
+        # Добавляем основной контейнер в layout прокручиваемого содержимого
+        scroll_content_layout.addWidget(main_container)
+        
+        # Добавляем прокручиваемую область в основной layout страницы
+        self.layout.addWidget(main_scroll_area)
         
         # Устанавливаем отступы для основного layout
         self.layout.setContentsMargins(20, 20, 20, 20)
-        
-        # Настраиваем обработку изменения размера
-        self.resizeEvent = self.on_resize
-    
-    def on_resize(self, event: QResizeEvent):
-        """Обработчик изменения размера окна"""
-        # Вызываем базовый метод обработки изменения размера
-        super().resizeEvent(event)
-        
-        # Здесь можно добавить дополнительную логику масштабирования при необходимости
-        # Например, изменение размера шрифта в зависимости от размера окна
     
     def add_section_title(self, parent_layout, title):
-        """Добавляет заголовок раздела с разделительной линией"""
-        # Заголовок раздела (с уменьшенным размером)
+        """Добавляет заголовок раздела без разделительной линии"""
+        # Заголовок раздела
         section_title = QLabel(title)
         section_title.setStyleSheet("""
             color: #6352EC;
-            font-size: 18px;
+            font-size: 22px;
             font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
         """)
         parent_layout.addWidget(section_title)
-        
-        # Разделительная линия с минимальными отступами
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setStyleSheet("background-color: #e0e0e0;")
-        separator.setFixedHeight(1)
-        parent_layout.addWidget(separator)
     
     def add_usage_instructions(self, parent_layout):
-        """Добавляет раздел с инструкциями по использованию приложения"""
-        # Добавляем заголовок раздела с разделительной линией
+        """Устаревший метод для обратной совместимости"""
         self.add_section_title(parent_layout, "КАК ПОЛЬЗОВАТЬСЯ ПРИЛОЖЕНИЕМ")
-        
+        self.add_usage_instructions_content(parent_layout)
+    
+    def add_usage_instructions_content(self, parent_layout):
+        """Добавляет содержимое раздела с инструкциями по использованию приложения"""
         # Шаги использования приложения
         steps = [
             "Выберите Excel-файл с информацией о релизах.",
@@ -142,117 +174,103 @@ class HelpPage(BasePage):
             "Нажмите кнопку \"Загрузить файлы\" для начала процесса загрузки."
         ]
         
-        # Создаем горизонтальный контейнер для компактного размещения шагов в две колонки
+        # Контейнер для всех шагов
         steps_container = QWidget()
-        steps_container_layout = QHBoxLayout(steps_container)
-        steps_container_layout.setContentsMargins(0, 5, 0, 0)
-        steps_container_layout.setSpacing(10)
+        steps_layout = QVBoxLayout(steps_container)
+        steps_layout.setContentsMargins(0, 10, 0, 0)  # Уменьшаем отступы
+        steps_layout.setSpacing(10)  # Уменьшаем отступы между шагами
         
-        # Левая колонка (шаги 1-3)
-        left_column = QWidget()
-        left_layout = QVBoxLayout(left_column)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(10)
-        
-        # Правая колонка (шаги 4-5)
-        right_column = QWidget()
-        right_layout = QVBoxLayout(right_column)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(10)
-        
-        # Распределяем шаги по колонкам
+        # Добавляем шаги
         for i, step_text in enumerate(steps, 1):
             step_widget = self.create_numbered_step(i, step_text)
-            if i <= 3:
-                left_layout.addWidget(step_widget)
-            else:
-                right_layout.addWidget(step_widget)
-        
-        # Добавляем растяжку в конце каждой колонки
-        left_layout.addStretch()
-        right_layout.addStretch()
-        
-        # Добавляем колонки в контейнер
-        steps_container_layout.addWidget(left_column)
-        steps_container_layout.addWidget(right_column)
+            steps_layout.addWidget(step_widget)
         
         parent_layout.addWidget(steps_container)
     
     def add_file_requirements(self, parent_layout):
-        """Добавляет раздел с требованиями к файлам"""
-        # Добавляем заголовок раздела с разделительной линией
+        """Устаревший метод для обратной совместимости"""
         self.add_section_title(parent_layout, "ТРЕБОВАНИЯ К ФАЙЛАМ")
-        
-        # Создаем горизонтальный контейнер для размещения блоков рядом
+        self.add_file_requirements_content(parent_layout)
+    
+    def add_file_requirements_content(self, parent_layout):
+        """Добавляет содержимое раздела с требованиями к файлам"""
+        # Создаем контейнер для требований
         requirements_container = QWidget()
-        requirements_layout = QHBoxLayout(requirements_container)
-        requirements_layout.setContentsMargins(0, 5, 0, 0)
-        requirements_layout.setSpacing(10)
+        requirements_layout = QVBoxLayout(requirements_container)
+        requirements_layout.setContentsMargins(0, 10, 0, 0)  # Уменьшаем отступы
+        requirements_layout.setSpacing(10)  # Уменьшаем отступы между блоками
         
         # 1. Блок с требованиями к Excel файлу
         excel_frame = QFrame()
         excel_frame.setStyleSheet("""
-            background-color: #f5f0ff;
-            border-radius: 10px;
+            background-color: #f0eaff;
+            border-radius: 15px;
         """)
         excel_layout = QVBoxLayout(excel_frame)
-        excel_layout.setContentsMargins(15, 10, 15, 10)
-        excel_layout.setSpacing(5)
+        excel_layout.setContentsMargins(15, 10, 15, 10)  # Уменьшаем внутренние отступы
+        excel_layout.setSpacing(5)  # Уменьшаем отступы между элементами
         
         # Заголовок блока
         excel_title = QLabel("Excel файл")
-        excel_title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        excel_title.setStyleSheet("""
+            font-weight: bold;
+            font-size: 16px;
+        """)
         excel_layout.addWidget(excel_title)
         
-        # Текст с требованиями
-        excel_desc = QLabel("Должен содержать следующие колонки:")
-        excel_desc.setStyleSheet("font-size: 12px;")
-        excel_layout.addWidget(excel_desc)
+        # Текст требований
+        excel_req = QLabel("Должен содержать следующие колонки:")
+        excel_req.setStyleSheet("font-size: 14px;")
+        excel_layout.addWidget(excel_req)
         
-        # Список колонок Excel
-        columns = [
-            "Название трека", "Исполнитель", "Альбом", "Жанр", "Дата релиза"
-        ]
-        
-        # Добавляем колонки с фиолетовыми маркерами
+        # Создаем список требований
+        columns = ["Название трека", "Исполнитель", "Альбом", "Жанр", "Дата релиза"]
         for column in columns:
-            bullet_widget = self.create_bullet_item(column, compact=True)
-            excel_layout.addWidget(bullet_widget)
+            bullet_item = self.create_bullet_item(column, compact=True)
+            excel_layout.addWidget(bullet_item)
+        
+        requirements_layout.addWidget(excel_frame)
         
         # 2. Блок с требованиями к аудиофайлам
         audio_frame = QFrame()
         audio_frame.setStyleSheet("""
-            background-color: #f5f0ff;
-            border-radius: 10px;
+            background-color: #f0eaff;
+            border-radius: 15px;
         """)
         audio_layout = QVBoxLayout(audio_frame)
-        audio_layout.setContentsMargins(15, 10, 15, 10)
-        audio_layout.setSpacing(5)
+        audio_layout.setContentsMargins(15, 10, 15, 10)  # Уменьшаем внутренние отступы
+        audio_layout.setSpacing(5)  # Уменьшаем отступы между элементами
         
         # Заголовок блока
         audio_title = QLabel("Аудиофайлы")
-        audio_title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        audio_title.setStyleSheet("""
+            font-weight: bold;
+            font-size: 16px;
+        """)
         audio_layout.addWidget(audio_title)
         
-        # Текст с требованиями
-        audio_desc = QLabel("Поддерживаются форматы MP3 и WAV.\nИмена файлов должны соответствовать\nданным в Excel.")
-        audio_desc.setStyleSheet("font-size: 12px;")
-        audio_desc.setWordWrap(True)
-        audio_layout.addWidget(audio_desc)
+        # Текст требований
+        audio_req = QLabel("Поддерживаются форматы MP3 и WAV. Имена файлов должны соответствовать данным в Excel.")
+        audio_req.setStyleSheet("font-size: 14px;")
+        audio_req.setWordWrap(True)
+        audio_layout.addWidget(audio_req)
         
-        # Добавляем растяжку в конце
-        audio_layout.addStretch()
-        
-        # Добавляем блоки в контейнер
-        requirements_layout.addWidget(excel_frame)
         requirements_layout.addWidget(audio_frame)
         
         parent_layout.addWidget(requirements_container)
     
     def add_troubleshooting(self, parent_layout):
-        """Добавляет раздел с решением проблем"""
-        # Добавляем заголовок раздела с разделительной линией
+        """Устаревший метод для обратной совместимости"""
         self.add_section_title(parent_layout, "РЕШЕНИЕ ПРОБЛЕМ")
+        self.add_troubleshooting_content(parent_layout)
+    
+    def add_troubleshooting_content(self, parent_layout):
+        """Добавляет содержимое раздела с решением проблем"""
+        # Создаем контейнер для блоков с ошибками
+        errors_container = QWidget()
+        errors_layout = QVBoxLayout(errors_container)
+        errors_layout.setContentsMargins(0, 10, 0, 0)  # Уменьшаем отступы
+        errors_layout.setSpacing(10)  # Уменьшаем отступы между блоками
         
         # Список ошибок и их решений
         errors = [
@@ -261,14 +279,8 @@ class HelpPage(BasePage):
             ("Ошибка валидации", "Проверьте, что Excel файл содержит все необходимые колонки и данные.")
         ]
         
-        # Создаем горизонтальный контейнер для размещения ошибок
-        errors_container = QWidget()
-        errors_layout = QHBoxLayout(errors_container)
-        errors_layout.setContentsMargins(0, 5, 0, 0)
-        errors_layout.setSpacing(10)
-        
-        # Распределяем ошибки по колонкам для компактности
-        for i, (title, description) in enumerate(errors):
+        # Добавляем блоки с ошибками
+        for title, description in errors:
             error_frame = self.create_error_box(title, description)
             errors_layout.addWidget(error_frame)
         
@@ -279,27 +291,27 @@ class HelpPage(BasePage):
         # Создаем фрейм с закругленными углами
         error_frame = QFrame()
         error_frame.setStyleSheet("""
-            background-color: #f5f0ff;
-            border-radius: 10px;
+            background-color: #f0eaff;
+            border-radius: 15px;
         """)
         
         # Создаем layout для содержимого
         error_layout = QVBoxLayout(error_frame)
-        error_layout.setContentsMargins(15, 10, 15, 10)
-        error_layout.setSpacing(5)
+        error_layout.setContentsMargins(15, 10, 15, 10)  # Уменьшаем внутренние отступы
+        error_layout.setSpacing(5)  # Уменьшаем отступы между элементами
         
         # Заголовок ошибки (красным цветом)
         error_title = QLabel(title)
         error_title.setStyleSheet("""
             color: #E85D75;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 16px;
         """)
         error_layout.addWidget(error_title)
         
         # Описание решения
         error_desc = QLabel(description)
-        error_desc.setStyleSheet("font-size: 12px;")
+        error_desc.setStyleSheet("font-size: 14px;")
         error_desc.setWordWrap(True)
         error_layout.addWidget(error_desc)
         
@@ -311,31 +323,30 @@ class HelpPage(BasePage):
         step_widget = QWidget()
         step_layout = QHBoxLayout(step_widget)
         step_layout.setContentsMargins(0, 0, 0, 0)
+        step_layout.setSpacing(15)
         
-        # Создаем круг с номером (уменьшенный размер)
+        # Создаем круг с номером
         number_label = QLabel(str(number))
-        number_label.setFixedSize(24, 24)  # Уменьшенный размер круга
-        number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Центрируем текст
+        number_label.setFixedSize(30, 30)
+        number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         number_label.setStyleSheet("""
-            background-color: #6352EC;  /* Фиолетовый цвет фона */
-            color: white;               /* Белый цвет текста */
-            border-radius: 12px;        /* Круглая форма */
-            font-weight: bold;          /* Жирный текст */
-            font-size: 12px;            /* Меньший размер шрифта */
+            background-color: #6352EC;
+            color: white;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 14px;
         """)
         
-        # Создаем текст шага (без переносов строк)
+        # Создаем текст шага
         text_label = QLabel(text)
-        text_label.setWordWrap(False)  # Запрещаем перенос текста
+        text_label.setWordWrap(True)
         text_label.setStyleSheet("""
-            font-size: 12px;
-            margin-left: 5px;
+            font-size: 14px;
         """)
         
         # Добавляем элементы в layout
         step_layout.addWidget(number_label)
-        step_layout.addWidget(text_label, 1)  # 1 - stretch factor
-        step_layout.addStretch(10)  # Добавляем растяжку справа
+        step_layout.addWidget(text_label, 1)
         
         return step_widget
     
@@ -344,30 +355,22 @@ class HelpPage(BasePage):
         # Контейнер для элемента
         item_widget = QWidget()
         item_layout = QHBoxLayout(item_widget)
-        
-        # Уменьшаем отступы для компактного режима
-        if compact:
-            item_layout.setContentsMargins(0, 0, 0, 0)
-        else:
-            item_layout.setContentsMargins(0, 2, 0, 2)
+        item_layout.setContentsMargins(0, 0, 0, 0)
+        item_layout.setSpacing(10)
         
         # Создаем маркер (фиолетовая точка)
         bullet = QLabel("•")
-        bullet.setStyleSheet(f"""
+        bullet.setStyleSheet("""
             color: #6352EC;
-            font-size: {18 if compact else 24}px;
-            min-width: {15 if compact else 20}px;
+            font-size: 18px;
         """)
-        bullet.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Создаем текст элемента
         text_label = QLabel(text)
-        text_label.setWordWrap(False)  # Запрещаем перенос строк
-        text_label.setStyleSheet(f"font-size: {12 if compact else 14}px;")
+        text_label.setStyleSheet("font-size: 14px;")
         
         # Добавляем элементы в layout
         item_layout.addWidget(bullet)
         item_layout.addWidget(text_label, 1)
-        item_layout.addStretch(10)
         
         return item_widget 
