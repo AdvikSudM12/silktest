@@ -36,7 +36,8 @@ class SettingsPage(BasePage):
     Содержит настройки приложения и конфигурацию скриптов
     """
     def __init__(self, parent=None):
-        super().__init__("Настройки", parent)
+        # Используем пустой заголовок, так как будем добавлять его вручную
+        super().__init__("", parent)
         self.setup_ui()
         
     def setup_ui(self):
@@ -76,6 +77,30 @@ class SettingsPage(BasePage):
         scroll_content_layout.setContentsMargins(20, 20, 20, 20)
         scroll_content_layout.setSpacing(15)
         
+        # Добавляем отступ перед заголовком
+        scroll_content_layout.addSpacing(10)
+        
+        # Добавляем заголовок "Настройки" в верхней части страницы
+        title_label = QLabel("НАСТРОЙКИ")
+        title_label.setStyleSheet("""
+            font-size: 40px;
+            font-weight: bold;
+            color: #6352EC;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
+        """)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        scroll_content_layout.addWidget(title_label)
+        
+        # Добавляем горизонтальную линию под заголовком
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet("background-color: #e0e0e0;")
+        separator.setFixedHeight(1)
+        scroll_content_layout.addWidget(separator)
+        scroll_content_layout.addSpacing(20)
+        
         # Создаем контейнер для настроек с тенью
         settings_container = ContainerWithShadow()
         container_layout = QVBoxLayout(settings_container)
@@ -87,6 +112,13 @@ class SettingsPage(BasePage):
         template_label.setStyleSheet("font-size: 14px;")
         container_layout.addWidget(template_label)
         
+        # Создаем контейнер для комбобокса и кнопки добавления
+        template_selector_container = QWidget()
+        template_selector_layout = QHBoxLayout(template_selector_container)
+        template_selector_layout.setContentsMargins(0, 0, 0, 0)
+        template_selector_layout.setSpacing(10)
+        
+        # Комбобокс для выбора шаблона
         self.template_combo = QComboBox()
         
         # Создаем временный SVG файл для стрелки
@@ -135,7 +167,39 @@ class SettingsPage(BasePage):
                 padding: 5px;
             }
         """)
-        container_layout.addWidget(self.template_combo)
+        
+        # Кнопка добавления шаблона
+        delete_template_button = QPushButton("×")  # Символ × для удаления
+        delete_template_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff5252;
+                color: white;
+                border-radius: 15px;
+                padding: 5px 10px;
+                font-weight: bold;
+                font-size: 18px;
+                min-width: 40px;
+                min-height: 40px;
+                border: 1px solid #ff3939;
+                border-right: 2px solid #e60000;
+                border-bottom: 2px solid #e60000;
+            }
+            QPushButton:hover {
+                background-color: #ff3939;
+            }
+            QPushButton:pressed {
+                background-color: #e60000;
+            }
+        """)
+        delete_template_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        delete_template_button.clicked.connect(self.delete_current_template)
+        
+        # Добавляем комбобокс и кнопку в контейнер
+        template_selector_layout.addWidget(self.template_combo, 1)  # 1 - растягивать по доступному пространству
+        template_selector_layout.addWidget(delete_template_button)
+        
+        # Добавляем контейнер с комбобоксом и кнопкой в основной layout
+        container_layout.addWidget(template_selector_container)
         
         # Токен кабинета (User ID)
         user_id_label = QLabel("Токен кабинета (User ID)")
@@ -479,3 +543,88 @@ class SettingsPage(BasePage):
         # Возвращаемся на предыдущую страницу
         main_window = self.window()
         main_window.content_stack.setCurrentIndex(0)  # Переход на страницу загрузки
+
+    def delete_current_template(self):
+        """Удаление текущего выбранного шаблона"""
+        # Получаем текущий выбранный шаблон
+        current_index = self.template_combo.currentIndex()
+        if current_index <= 0:  # Если выбран первый элемент ("Создать новый шаблон...")
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Предупреждение",
+                "Выберите шаблон для удаления"
+            )
+            return
+        
+        template_name = self.template_combo.currentText()
+        
+        # Запрашиваем подтверждение
+        from PyQt6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self,
+            "Подтверждение удаления",
+            f"Вы уверены, что хотите удалить шаблон '{template_name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.No:
+            return
+        
+        # Удаляем шаблон из JSON файла
+        import json
+        import os
+        
+        templates_path = os.path.join(os.path.dirname(__file__), "..", "data", "templates.json")
+        
+        # Загружаем существующие шаблоны
+        if os.path.exists(templates_path):
+            try:
+                with open(templates_path, "r", encoding="utf-8") as f:
+                    templates = json.load(f)
+                
+                # Удаляем шаблон
+                if template_name in templates:
+                    del templates[template_name]
+                
+                # Сохраняем обновленные шаблоны
+                with open(templates_path, "w", encoding="utf-8") as f:
+                    json.dump(templates, f, ensure_ascii=False, indent=4)
+                
+                # Обновляем список шаблонов в комбобоксе
+                self.template_combo.blockSignals(True)
+                self.template_combo.clear()
+                self.template_combo.addItem("Создать новый шаблон...")
+                
+                # Добавляем все шаблоны
+                for name in templates:
+                    self.template_combo.addItem(name)
+                
+                # Выбираем первый элемент
+                self.template_combo.setCurrentIndex(0)
+                self.template_combo.blockSignals(False)
+                
+                # Очищаем поля ввода
+                self.user_id_input.clear()
+                self.jwt_input.clear()
+                
+                # Показываем сообщение об успешном удалении
+                QMessageBox.information(
+                    self,
+                    "Шаблон удален",
+                    f"Шаблон '{template_name}' успешно удален."
+                )
+                
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Ошибка удаления",
+                    f"Не удалось удалить шаблон: {str(e)}"
+                )
+        else:
+            QMessageBox.warning(
+                self,
+                "Файл не найден",
+                "Файл шаблонов не найден."
+            )
