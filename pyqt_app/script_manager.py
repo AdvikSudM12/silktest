@@ -4,7 +4,9 @@
 import os
 import sys
 import importlib.util
+import json
 from typing import Dict, Any, Callable, List, Optional
+from pathlib import Path
 
 class ScriptManager:
     """
@@ -28,10 +30,137 @@ class ScriptManager:
         
         # Словарь доступных функций из скриптов
         self.available_functions: Dict[str, Callable] = {}
-        
-        # Добавляем директорию проекта в sys.path для корректного импорта
+          # Добавляем директорию проекта в sys.path для корректного импорта
         if self.root_dir not in sys.path:
             sys.path.append(self.root_dir)
+    
+    def load_paths_from_json(self) -> Dict[str, str]:
+        """
+        Загружает сохраненные пути из paths.json
+        
+        Returns:
+            Словарь с путями или пустой словарь в случае ошибки
+        """
+        paths_file = os.path.join(self.root_dir, 'pyqt_app', 'data', 'paths.json')
+        if os.path.exists(paths_file):
+            try:
+                with open(paths_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Ошибка при загрузке paths.json: {str(e)}")
+        return {}
+    
+    def run_file_comparison(self) -> Dict[str, Any]:
+        """
+        Запускает сравнение файлов с использованием сохраненных путей
+        
+        Returns:
+            Результат сравнения файлов
+        """
+        # Загружаем модуль compare_files
+        module = self.load_script('compare_files.py')
+        if not module:
+            return {
+                'success': False,
+                'message': "Не удалось загрузить модуль compare_files.py"
+            }
+        
+        # Получаем функцию сравнения
+        if not hasattr(module, 'compare_files_with_excel'):
+            return {
+                'success': False,
+                'message': "Функция compare_files_with_excel не найдена в модуле"
+            }
+        
+        # Вызываем функцию сравнения
+        try:
+            compare_function = getattr(module, 'compare_files_with_excel')
+            return compare_function()
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Ошибка при выполнении сравнения файлов: {str(e)}"
+            }
+    
+    def run_excel_processing(self, error_file_path: str = None) -> Dict[str, Any]:
+        """
+        Запускает обработку Excel файла с ошибками
+        
+        Args:
+            error_file_path: Путь к файлу с результатами сравнения
+        
+        Returns:
+            Результат обработки Excel файла
+        """
+        # Загружаем модуль excel_operations
+        module = self.load_script('excel_operations.py')
+        if not module:
+            return {
+                'success': False,
+                'message': "Не удалось загрузить модуль excel_operations.py"
+            }
+        
+        # Получаем функцию обработки
+        if not hasattr(module, 'process_excel_errors'):
+            return {
+                'success': False,
+                'message': "Функция process_excel_errors не найдена в модуле"
+            }
+        
+        # Вызываем функцию обработки
+        try:
+            process_function = getattr(module, 'process_excel_errors')
+            return process_function(error_file_path=error_file_path)
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Ошибка при обработке Excel файла: {str(e)}"
+            }
+    
+    def run_complete_workflow(self) -> Dict[str, Any]:
+        """
+        Выполняет полный workflow: сравнение файлов → обработка ошибок
+        
+        Returns:
+            Результат выполнения полного workflow
+        """
+        # Этап 1: Сравнение файлов
+        comparison_result = self.run_file_comparison()
+        
+        if not comparison_result['success']:
+            return {
+                'success': False,
+                'message': f"Ошибка на этапе сравнения файлов: {comparison_result['message']}",
+                'stage': 'comparison'
+            }
+        
+        # Проверяем, есть ли ошибки для обработки
+        if comparison_result.get('error_count', 0) == 0:
+            return {
+                'success': True,
+                'message': "Все файлы соответствуют записям в Excel. Обработка ошибок не требуется.",
+                'stage': 'completed',
+                'comparison_result': comparison_result
+            }
+        
+        # Этап 2: Обработка ошибок в Excel
+        excel_result = self.run_excel_processing(comparison_result.get('results_file'))
+        
+        if not excel_result['success']:
+            return {
+                'success': False,
+                'message': f"Ошибка на этапе обработки Excel: {excel_result['message']}",
+                'stage': 'excel_processing',
+                'comparison_result': comparison_result
+            }
+        
+        return {
+            'success': True,
+            'message': f"Workflow выполнен успешно! {comparison_result['message']} {excel_result['message']}",
+            'stage': 'completed',
+            'comparison_result': comparison_result,
+            'excel_result': excel_result
+        }
     
     def load_script(self, script_name: str) -> Optional[Any]:
         """

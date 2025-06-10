@@ -39,6 +39,7 @@ class UploadPage(BasePage):
         self.excel_file_path = None
         self.directory_path = None
         self.setup_ui()
+        self.load_saved_paths()
         
     def setup_ui(self):
         """Настройка элементов интерфейса страницы загрузки"""
@@ -537,8 +538,7 @@ class UploadPage(BasePage):
         
         # Добавляем основной контейнер в layout страницы
         scroll_content_layout.addWidget(main_container)
-        
-        # Добавляем прокручиваемую область в основной layout страницы
+          # Добавляем прокручиваемую область в основной layout страницы
         self.layout.addWidget(main_scroll_area)
         
         # Устанавливаем отступы для основного layout
@@ -561,6 +561,9 @@ class UploadPage(BasePage):
             import os
             file_basename = os.path.basename(file_name)
             self.excel_filename_label.setText(file_basename)
+            
+            # Сохраняем путь в файл
+            self.save_paths()
     
     def select_directory(self):
         """Обработчик выбора директории с файлами"""
@@ -572,12 +575,14 @@ class UploadPage(BasePage):
         if directory:
             # Показываем статус загрузки
             self.show_status('loading', "Сканирование директории, пожалуйста подождите...")
-            
-            # Сохраняем путь к директории
+              # Сохраняем путь к директории
             self.directory_path = directory
             
             # Очищаем текущий список
             self.files_list.clear()
+            
+            # Сохраняем путь в файл
+            self.save_paths()
             
             # Получаем список всех файлов в директории
             import os
@@ -697,8 +702,7 @@ class UploadPage(BasePage):
         
         # Устанавливаем текст сообщения
         self.status_label.setText(message)
-        
-        # Показываем контейнер статуса
+          # Показываем контейнер статуса
         self.status_container.setVisible(True)
     
     def hide_status(self):
@@ -706,7 +710,16 @@ class UploadPage(BasePage):
         self.status_container.setVisible(False)
     
     def check_files(self):
-        """Проверка файлов в выбранной директории"""
+        """Проверка файлов в выбранной директории с использованием интегрированных скриптов"""
+        if not self.excel_file_path:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Excel файл не выбран",
+                "Пожалуйста, сначала выберите Excel файл."
+            )
+            return
+            
         if not self.directory_path:
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(
@@ -715,51 +728,222 @@ class UploadPage(BasePage):
                 "Пожалуйста, сначала выберите директорию с файлами."
             )
             return
-        
+
         # Показываем статус загрузки
         self.show_status('loading', "Проверка файлов, пожалуйста подождите...")
-            
-        # Получаем список всех файлов в директории
-        import os
-        files = []
+        
+        # Используем ScriptManager для выполнения полного workflow
+        from pyqt_app.script_manager import ScriptManager
         
         try:
-            # Получаем все файлы в директории
-            files = [file for file in os.listdir(self.directory_path) if os.path.isfile(os.path.join(self.directory_path, file))]
-        except Exception as e:
-            print(f"Ошибка при чтении директории: {e}")
-            files = []
-        
-        # Обновляем счетчик файлов
-        self.files_count_label.setText(f"Всего файлов: {len(files)}")
-        
-        # Показываем контейнер со списком файлов если есть файлы
-        if files:
-            self.files_list_container.setVisible(True)
-            # Обновляем заголовок со счетчиком файлов
-            self.files_list_title.setText(f"Выбрано файлов: {len(files)}")
+            script_manager = ScriptManager()
+            result = script_manager.run_complete_workflow()
             
-            # Очищаем и заполняем список файлов
-            self.files_list.clear()
-            for file in files:
-                self.files_list.addItem(file)
-        else:
-            self.files_list_container.setVisible(False)
-        
-        # Показываем соответствующий статус проверки
-        if files:
-            self.show_status('success', "Проверка файлов успешно завершена. Все файлы найдены!")
-        else:
-            self.show_status('error', "Файлы не найдены. Пожалуйста, проверьте выбранную директорию.")
+            if result['success']:
+                if result.get('stage') == 'completed':
+                    comparison_result = result.get('comparison_result', {})
+                    excel_result = result.get('excel_result', {})
+                    
+                    error_count = comparison_result.get('error_count', 0)
+                    
+                    if error_count == 0:
+                        # Нет ошибок - все файлы соответствуют                        self.show_status('success', result['message'])
+                        
+                        # Обновляем отображение файлов
+                        self.update_files_display()
+                        
+                    else:
+                        # Есть ошибки - показываем детали
+                        moved_count = excel_result.get('moved_count', 0)
+                        results_file = comparison_result.get('results_file', '')
+                        
+                        warning_message = f"Найдено {error_count} файлов с ошибками. "
+                        if moved_count > 0:
+                            warning_message += f"Перенесено {moved_count} строк в лист ошибок. "
+                        
+                        self.show_status('warning', warning_message)
+                        
+                        # Предлагаем сохранить файл результатов
+                        if results_file:
+                            self.offer_save_results_file(results_file, error_count, moved_count)
+                        
+                        # Обновляем отображение файлов
+                        self.update_files_display()
+                        
+                else:
+                    # Workflow завершен без обработки ошибок
+                    self.show_status('info', result['message'])
+                    self.update_files_display()
+                    
+            else:
+                # Ошибка в выполнении workflow
+                error_stage = result.get('stage', 'unknown')
+                error_message = f"Ошибка на этапе '{error_stage}': {result['message']}"
+                
+                self.show_status('error', error_message)
+                
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.critical(
+                    self,
+                    "Ошибка проверки файлов",
+                    error_message
+                )
+                
+        except Exception as e:
+            error_message = f"Неожиданная ошибка при проверке файлов: {str(e)}"
+            self.show_status('error', error_message)
+            
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Критическая ошибка",
+                error_message
+            )
+            
+            import traceback
+            print(f"Ошибка в check_files: {traceback.format_exc()}")
+    
+    def update_files_display(self):
+        """Обновляет отображение файлов в интерфейсе"""
+        if self.directory_path:
+            import os
+            try:
+                # Получаем все файлы в директории
+                files = [file for file in os.listdir(self.directory_path) if os.path.isfile(os.path.join(self.directory_path, file))]
+                
+                # Обновляем счетчик файлов
+                self.files_count_label.setText(f"Всего файлов: {len(files)}")
+                
+                # Показываем контейнер со списком файлов если есть файлы
+                if files:
+                    self.files_list_container.setVisible(True)
+                    # Обновляем заголовок со счетчиком файлов
+                    self.files_list_title.setText(f"Выбрано файлов: {len(files)}")
+                    
+                    # Очищаем и заполняем список файлов
+                    self.files_list.clear()
+                    for file in files:
+                        self.files_list.addItem(file)
+                else:
+                    self.files_list_container.setVisible(False)
+                    
+            except Exception as e:
+                print(f"Ошибка при обновлении отображения файлов: {e}")
     
     def open_settings(self):
         """Открытие настроек приложения в отдельном окне"""
         # Импортируем диалог настроек
         from pyqt_app.pages.settings_page import SettingsDialog
-        
-        # Создаем и открываем диалоговое окно настроек
+          # Создаем и открываем диалоговое окно настроек
         settings_dialog = SettingsDialog(self)
         settings_dialog.exec()
+    
+    def save_paths(self):
+        """Сохранение выбранных путей в файл"""
+        import json
+        import os
+        from datetime import datetime
+        
+        # Создаем директорию для данных, если её нет
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        os.makedirs(data_dir, exist_ok=True)
+        
+        paths_file = os.path.join(data_dir, "paths.json")
+        
+        # Создаем структуру данных для сохранения
+        paths_data = {
+            "excel_file_path": self.excel_file_path or "",
+            "directory_path": self.directory_path or "",
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        try:
+            # Добавляем подробную диагностику
+            print(f"[DEBUG] Сохранение в файл: {paths_file}")
+            print(f"[DEBUG] Данные для сохранения: {paths_data}")
+            print(f"[DEBUG] Директория существует: {os.path.exists(data_dir)}")
+            
+            with open(paths_file, "w", encoding="utf-8") as f:
+                json.dump(paths_data, f, ensure_ascii=False, indent=4)
+                f.flush()  # Принудительно записываем на диск
+                
+            # Проверяем, что файл действительно записался
+            if os.path.exists(paths_file):
+                with open(paths_file, "r", encoding="utf-8") as f:
+                    saved_data = json.load(f)
+                    print(f"[DEBUG] Проверка записи: {saved_data}")
+                    
+            print(f"✅ Пути успешно сохранены: Excel={self.excel_file_path}, Directory={self.directory_path}")
+            
+        except Exception as e:
+            print(f"❌ Ошибка при сохранении путей: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def load_saved_paths(self):
+        """Загрузка сохраненных путей из файла"""
+        import json
+        import os
+        
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        paths_file = os.path.join(data_dir, "paths.json")
+        
+        try:
+            if os.path.exists(paths_file):
+                with open(paths_file, "r", encoding="utf-8") as f:
+                    paths_data = json.load(f)
+                    
+                # Загружаем Excel файл, если он существует
+                excel_path = paths_data.get("excel_file_path", "")
+                if excel_path and os.path.exists(excel_path):
+                    self.excel_file_path = excel_path
+                    file_basename = os.path.basename(excel_path)
+                    self.excel_filename_label.setText(file_basename)
+                    print(f"Загружен Excel файл: {excel_path}")
+                  # Загружаем директорию, если она существует  
+                directory_path = paths_data.get("directory_path", "")
+                if directory_path and os.path.exists(directory_path):
+                    self.directory_path = directory_path
+                    
+                    # Автоматически загружаем файлы из директории
+                    self.load_directory_files(directory_path)
+                    print(f"Загружена директория: {directory_path}")
+                    
+        except Exception as e:
+            print(f"Ошибка при загрузке путей: {e}")
+    
+    def load_directory_files(self, directory):
+        """Загрузка файлов из указанной директории"""
+        import os
+        
+        try:
+            # Очищаем текущий список
+            self.files_list.clear()
+            
+            # Получаем список всех файлов в директории
+            files = [file for file in os.listdir(directory) if os.path.isfile(os.path.join(directory, file))]
+            
+            # Заполняем список файлов
+            for file in files:
+                self.files_list.addItem(file)
+                
+            # Обновляем заголовок со счетчиком файлов
+            self.files_list_title.setText(f"Выбрано файлов: {len(files)}")
+            
+            # Обновляем счетчик файлов в другом месте интерфейса
+            self.files_count_label.setText(f"Всего файлов: {len(files)}")
+            
+            # Показываем контейнер со списком файлов только если есть файлы
+            if files:
+                self.files_list_container.setVisible(True)
+                self.show_status('success', "Файлы из сохраненной директории загружены успешно!")
+            else:
+                self.files_list_container.setVisible(False)
+                self.show_status('warning', "В сохраненной директории не найдены файлы.")
+                
+        except Exception as e:
+            print(f"Ошибка при загрузке файлов из директории: {e}")
+            self.show_status('error', f"Ошибка при загрузке файлов: {e}")
     
     def upload_files(self):
         """Загрузка файлов для обработки"""
@@ -783,10 +967,7 @@ class UploadPage(BasePage):
             "Начата загрузка файлов для обработки..."
         )
         
-        # Для демонстрации - показываем успешный статус через 1 секунду
-        # В реальном приложении этот статус будет обновляться по мере выполнения операции
-        import time
-        time.sleep(1)
+        # Для демонстрации - показываем успешный статус
         self.show_status('success', "Загрузка файлов успешно выполнена!")
     
     def continue_upload(self):
@@ -802,7 +983,117 @@ class UploadPage(BasePage):
             "Продолжение загрузки файлов..."
         )
         
-        # Для демонстрации - показываем информационный статус через 1 секунду
-        import time
-        time.sleep(1)
-        self.show_status('info', "Продолжение загрузки. Обработано 50% файлов...") 
+        # Для демонстрации - показываем информационный статус
+        self.show_status('info', "Продолжение загрузки. Обработано 50% файлов...")
+    
+    def offer_save_results_file(self, source_file: str, error_count: int, moved_count: int):
+        """
+        Предлагает пользователю сохранить файл результатов в удобном месте
+        
+        Args:
+            source_file: Путь к исходному файлу результатов
+            error_count: Количество найденных ошибок
+            moved_count: Количество перенесенных строк
+        """
+        from PyQt6.QtWidgets import QMessageBox, QFileDialog
+        import os
+        import shutil
+        from datetime import datetime
+        
+        # Создаем информационное сообщение
+        message = f"Проверка завершена!\n\n"
+        message += f"🔍 Найдено ошибок: {error_count}\n"
+        if moved_count > 0:
+            message += f"📝 Перенесено строк в лист ошибок: {moved_count}\n"
+        message += f"\nФайл с детальным отчетом готов к сохранению.\n"
+        message += f"Хотите сохранить его в удобном для вас месте?"
+        
+        # Показываем диалог с вопросом
+        reply = QMessageBox.question(
+            self,
+            "Сохранить отчет об ошибках",
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Получаем имя исходного файла
+            source_filename = os.path.basename(source_file)
+            name_without_ext = os.path.splitext(source_filename)[0]
+            
+            # Предлагаем сохранить с понятным именем
+            suggested_filename = f"Отчет_об_ошибках_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx"
+            
+            # Открываем диалог сохранения файла
+            save_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Сохранить отчет об ошибках",
+                suggested_filename,
+                "Excel Files (*.xlsx);;All Files (*)"
+            )
+            
+            if save_path:
+                try:
+                    # Копируем файл в выбранное место
+                    shutil.copy2(source_file, save_path)
+                    
+                    # Показываем сообщение об успехе
+                    success_message = f"Отчет успешно сохранен:\n{save_path}\n\n"
+                    success_message += f"📊 Файл содержит {error_count} записей с ошибками.\n"
+                    success_message += f"Открыть файл сейчас?"
+                    
+                    reply = QMessageBox.question(
+                        self,
+                        "Файл сохранен",
+                        success_message,
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes
+                    )
+                    
+                    # Если пользователь хочет открыть файл
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self.open_file_in_system(save_path)
+                    
+                    # Обновляем статус
+                    self.show_status('success', f"Отчет сохранен: {os.path.basename(save_path)}")
+                    
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Ошибка сохранения",
+                        f"Не удалось сохранить файл:\n{str(e)}"
+                    )
+                    self.show_status('error', f"Ошибка сохранения файла: {str(e)}")
+            else:
+                # Пользователь отменил сохранение
+                self.show_status('info', "Сохранение отчета отменено")
+        else:
+            # Пользователь не хочет сохранять
+            self.show_status('info', f"Отчет доступен в: {os.path.basename(source_file)}")
+    
+    def open_file_in_system(self, file_path: str):
+        """
+        Открывает файл в системном приложении по умолчанию
+        
+        Args:
+            file_path: Путь к файлу для открытия
+        """
+        import os
+        import subprocess
+        import platform
+        
+        try:
+            if platform.system() == 'Windows':
+                os.startfile(file_path)
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.call(['open', file_path])
+            else:  # Linux
+                subprocess.call(['xdg-open', file_path])
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Не удалось открыть файл",
+                f"Файл сохранен, но не удалось его открыть:\n{str(e)}\n\nПуть к файлу: {file_path}"
+            )

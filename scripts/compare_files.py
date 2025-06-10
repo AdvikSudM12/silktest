@@ -131,43 +131,97 @@ def find_char_differences(str1, str2):
     
     return '; '.join(char_differences) if char_differences else ''
 
-def compare_files_with_excel():
+def compare_files_with_excel(excel_file_path=None, directory_path=None):
+    """
+    Сравнивает файлы из Excel с реальными файлами в директории
+    
+    Args:
+        excel_file_path: Путь к Excel файлу (если не указан, берется из paths.json)
+        directory_path: Путь к директории с файлами (если не указан, берется из paths.json)
+    
+    Returns:
+        dict: Результат сравнения с ключами 'success', 'results_file', 'error_count', 'message'
+    """
+    import json
+    
     # Получаем абсолютный путь к директории скрипта
     script_dir = Path(__file__).parent.parent
     
-    # Пути к файлам
-    files_directory = script_dir / 'src' / 'apps' / 'release-parser-5' / 'files'
-    excel_file = input("Введите путь к Excel файлу: ")
+    # Если пути не переданы, загружаем из paths.json
+    if not excel_file_path or not directory_path:
+        paths_file = script_dir / 'pyqt_app' / 'data' / 'paths.json'
+        if os.path.exists(paths_file):
+            try:
+                with open(paths_file, 'r', encoding='utf-8') as f:
+                    paths_data = json.load(f)
+                    if not excel_file_path:
+                        excel_file_path = paths_data.get('excel_file_path')
+                    if not directory_path:
+                        directory_path = paths_data.get('directory_path')
+            except Exception as e:
+                return {
+                    'success': False,
+                    'message': f"Ошибка при загрузке paths.json: {str(e)}",
+                    'results_file': None,
+                    'error_count': 0
+                }
     
-    if not os.path.exists(excel_file):
-        print(f"Ошибка: Файл {excel_file} не найден")
-        return
+    # Проверяем наличие путей
+    if not excel_file_path:
+        return {
+            'success': False,
+            'message': "Не указан путь к Excel файлу",
+            'results_file': None,
+            'error_count': 0
+        }
+    
+    if not directory_path:
+        return {
+            'success': False,
+            'message': "Не указан путь к директории с файлами",
+            'results_file': None,
+            'error_count': 0
+        }
+    
+    if not os.path.exists(excel_file_path):
+        return {
+            'success': False,
+            'message': f"Excel файл не найден: {excel_file_path}",
+            'results_file': None,
+            'error_count': 0
+        }
         
-    if not os.path.exists(files_directory):
-        print(f"Ошибка: Директория {files_directory} не найдена")
-        return
-
-    # Создаем директорию results, если её нет
+    if not os.path.exists(directory_path):
+        return {
+            'success': False,
+            'message': f"Директория не найдена: {directory_path}",
+            'results_file': None,
+            'error_count': 0
+        }    # Создаем директорию results, если её нет
     results_dir = script_dir / 'results'
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
     # Получаем список реальных файлов в директории
-    actual_files = [f for f in os.listdir(files_directory)]
+    actual_files = [f for f in os.listdir(directory_path)]
     
     try:
         # Читаем только Лист1 из Excel файла
-        df = pd.read_excel(excel_file, sheet_name='Лист1', engine='openpyxl')
-    except Exception as e:
-        print(f"Ошибка при чтении Excel файла: {e}")
-        return
-
-    # Проверяем наличие необходимых столбцов
+        df = pd.read_excel(excel_file_path, sheet_name='Лист1', engine='openpyxl')
+    except Exception as e:        return {
+            'success': False,
+            'message': f"Ошибка при чтении Excel файла: {str(e)}",
+            'results_file': None,
+            'error_count': 0
+        }# Проверяем наличие необходимых столбцов
     required_columns = ['track (titel)', 'cover (titel)']
     if not all(col in df.columns for col in required_columns):
-        print("Ошибка: В Excel файле отсутствуют необходимые столбцы")
-        print("Требуются столбцы:", required_columns)
-        return
+        return {
+            'success': False,
+            'message': f"В Excel файле отсутствуют необходимые столбцы: {required_columns}",
+            'results_file': None,
+            'error_count': 0
+        }
 
     # Создаем списки для хранения результатов
     all_results = []
@@ -234,8 +288,7 @@ def compare_files_with_excel():
                     pass
             adjusted_width = (max_length + 2)
             worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
-        
-        # Выделяем строки цветом в зависимости от процента сходства
+          # Выделяем строки цветом в зависимости от процента сходства
         for row in range(2, len(all_results) + 2):  # +2 because Excel is 1-based and we have header
             similarity = worksheet.cell(row=row, column=5).value  # Колонка с процентом сходства
             if similarity < 50:
@@ -245,15 +298,40 @@ def compare_files_with_excel():
                 for col in range(1, 7):
                     worksheet.cell(row=row, column=col).fill = yellow_fill
     
-    if len(all_results) > 0:
-        print(f"\nНайдено {len(all_results)} файлов с различиями")
-    else:
-        print("\nВсе файлы соответствуют записям в Excel")
-    print(f"Результаты сохранены в файл: {output_file}")
+    error_count = len(all_results)
+    success_message = f"Найдено {error_count} файлов с различиями" if error_count > 0 else "Все файлы соответствуют записям в Excel"
+    
+    return {
+        'success': True,
+        'message': success_message,
+        'results_file': str(output_file),
+        'error_count': error_count,
+        'results_data': all_results    }
+
 
 def print_debug_info(filename, normalized_filename):
+    """Выводит отладочную информацию о нормализации файла"""
     print(f"\nИскомый файл: '{filename}'")
     print(f"Нормализованный файл: '{normalized_filename}'")
 
+
+def compare_files_interactive():
+    """Интерактивная версия для запуска из командной строки"""
+    # Получаем абсолютный путь к директории скрипта
+    script_dir = Path(__file__).parent.parent
+    
+    # Пути к файлам
+    files_directory = script_dir / 'src' / 'apps' / 'release-parser-5' / 'files'
+    excel_file = input("Введите путь к Excel файлу: ")
+    
+    result = compare_files_with_excel(excel_file, str(files_directory))
+    
+    if result['success']:
+        print(f"\n{result['message']}")
+        print(f"Результаты сохранены в файл: {result['results_file']}")
+    else:
+        print(f"Ошибка: {result['message']}")
+
+
 if __name__ == "__main__":
-    compare_files_with_excel()
+    compare_files_interactive()
