@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
     QWidget, QFrame, QFileDialog, QScrollArea, QListWidget, QListWidgetItem
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QPixmap, QColor, QPainter, QPen
 
 from .base_page import BasePage
@@ -33,6 +33,10 @@ class UploadPage(BasePage):
     
     Содержит интерфейс для загрузки файлов и запуска скриптов обработки
     """
+    
+    # Сигнал для передачи данных проверки на страницу аналитики
+    comparison_completed = pyqtSignal(dict)
+    
     def __init__(self, parent=None):
         # Используем пустой заголовок, так как будем добавлять его вручную
         super().__init__("", parent)
@@ -766,14 +770,19 @@ class UploadPage(BasePage):
                         # Предлагаем сохранить файл результатов
                         if results_file:
                             self.offer_save_results_file(results_file, error_count, moved_count)
-                        
-                        # Обновляем отображение файлов
+                          # Обновляем отображение файлов
                         self.update_files_display()
+                        
+                        # Передаем данные на страницу аналитики
+                        self.comparison_completed.emit(comparison_result)
                         
                 else:
                     # Workflow завершен без обработки ошибок
                     self.show_status('info', result['message'])
                     self.update_files_display()
+                    
+                    # Передаем данные на страницу аналитики
+                    self.comparison_completed.emit(comparison_result)
                     
             else:
                 # Ошибка в выполнении workflow

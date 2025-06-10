@@ -38,8 +38,7 @@ class MainWindow(QMainWindow):
         # Создаем стек виджетов для содержимого вкладок
         self.content_stack = QStackedWidget()
         main_layout.addWidget(self.content_stack)
-        
-        # Создаем страницы для вкладок
+          # Создаем страницы для вкладок
         self.setup_pages()
         
         # Устанавливаем активную вкладку ЗАГРУЗКА (индекс 0)
@@ -53,11 +52,20 @@ class MainWindow(QMainWindow):
         self.help_page = HelpPage()
         self.settings_page = SettingsPage()
         
-        # Добавляем страницы в стек
+        # Связываем страницы для передачи данных
+        self.connect_pages()
+          # Добавляем страницы в стек
         self.content_stack.addWidget(self.upload_page)
         self.content_stack.addWidget(self.analytics_page)
         self.content_stack.addWidget(self.help_page)
         self.content_stack.addWidget(self.settings_page)
+    
+    def connect_pages(self):
+        """Связывание страниц для передачи данных"""
+        # Связываем сигнал завершения проверки файлов с обновлением аналитики
+        self.upload_page.comparison_completed.connect(
+            self.analytics_page.update_from_comparison_result
+        )
     
     def change_tab(self, index):
         """Обработчик переключения вкладок"""
