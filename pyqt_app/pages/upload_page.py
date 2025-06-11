@@ -11,6 +11,10 @@ from PyQt6.QtGui import QFont, QIcon, QPixmap, QColor, QPainter, QPen
 from .base_page import BasePage
 from pyqt_app.resources.icons import get_excel_icon, get_folder_icon
 
+# DEBUG: Добавляем логирование для отладки процесса проверки файлов
+from pyqt_app.logger_config import get_logger
+debug_logger = get_logger("upload_page")
+
 class ContainerWithShadow(QFrame):
     """Кастомный виджет-контейнер с эффектом тени"""
     def __init__(self, parent=None):
@@ -715,7 +719,12 @@ class UploadPage(BasePage):
     
     def check_files(self):
         """Проверка файлов в выбранной директории с использованием интегрированных скриптов"""
+        debug_logger.info("🔍 Началась проверка файлов")
+        debug_logger.debug(f"Excel файл: {self.excel_file_path}")
+        debug_logger.debug(f"Директория: {self.directory_path}")
+        
         if not self.excel_file_path:
+            debug_logger.warning("❌ Excel файл не выбран")
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(
                 self,
@@ -725,6 +734,7 @@ class UploadPage(BasePage):
             return
             
         if not self.directory_path:
+            debug_logger.warning("❌ Директория не выбрана")
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(
                 self,
@@ -733,33 +743,48 @@ class UploadPage(BasePage):
             )
             return
 
+        debug_logger.info("✅ Пути проверены, показываем статус загрузки")
         # Показываем статус загрузки
         self.show_status('loading', "Проверка файлов, пожалуйста подождите...")
         
+        debug_logger.info("📦 Импортируем ScriptManager")
         # Используем ScriptManager для выполнения полного workflow
         from pyqt_app.script_manager import ScriptManager
         
         try:
+            debug_logger.info("🏗️ Создаем экземпляр ScriptManager")
             script_manager = ScriptManager()
+            
+            debug_logger.info("🚀 Запускаем полный workflow проверки файлов")
             result = script_manager.run_complete_workflow()
+            debug_logger.success(f"📊 Workflow завершен: {result.get('success', False)}")
             
             if result['success']:
+                debug_logger.info("✅ Workflow выполнен успешно")
                 if result.get('stage') == 'completed':
+                    debug_logger.info("🎯 Workflow полностью завершен")
                     comparison_result = result.get('comparison_result', {})
                     excel_result = result.get('excel_result', {})
                     
                     error_count = comparison_result.get('error_count', 0)
+                    debug_logger.info(f"📈 Количество ошибок: {error_count}")
                     
                     if error_count == 0:
+                        debug_logger.success("🎉 Нет ошибок - все файлы соответствуют")
                         # Нет ошибок - все файлы соответствуют                        self.show_status('success', result['message'])
                         
+                        debug_logger.debug("🔄 Обновляем отображение файлов")
                         # Обновляем отображение файлов
                         self.update_files_display()
                         
                     else:
+                        debug_logger.warning(f"⚠️ Найдены ошибки: {error_count}")
                         # Есть ошибки - показываем детали
                         moved_count = excel_result.get('moved_count', 0)
                         results_file = comparison_result.get('results_file', '')
+                        
+                        debug_logger.info(f"📝 Перенесено строк: {moved_count}")
+                        debug_logger.info(f"📄 Файл результатов: {results_file}")
                         
                         warning_message = f"Найдено {error_count} файлов с ошибками. "
                         if moved_count > 0:
@@ -769,14 +794,19 @@ class UploadPage(BasePage):
                         
                         # Предлагаем сохранить файл результатов
                         if results_file:
+                            debug_logger.info("💾 Предлагаем сохранить файл результатов")
                             self.offer_save_results_file(results_file, error_count, moved_count)
-                          # Обновляем отображение файлов
+                          
+                        debug_logger.debug("🔄 Обновляем отображение файлов")
+                        # Обновляем отображение файлов
                         self.update_files_display()
                         
+                        debug_logger.debug("📡 Передаем данные на страницу аналитики")
                         # Передаем данные на страницу аналитики
                         self.comparison_completed.emit(comparison_result)
                         
                 else:
+                    debug_logger.info("ℹ️ Workflow завершен без обработки ошибок")
                     # Workflow завершен без обработки ошибок
                     self.show_status('info', result['message'])
                     self.update_files_display()
@@ -785,9 +815,13 @@ class UploadPage(BasePage):
                     self.comparison_completed.emit(comparison_result)
                     
             else:
+                debug_logger.error("❌ Ошибка в выполнении workflow")
                 # Ошибка в выполнении workflow
                 error_stage = result.get('stage', 'unknown')
                 error_message = f"Ошибка на этапе '{error_stage}': {result['message']}"
+                
+                debug_logger.error(f"🚨 Этап ошибки: {error_stage}")
+                debug_logger.error(f"📝 Сообщение ошибки: {result['message']}")
                 
                 self.show_status('error', error_message)
                 
@@ -799,8 +833,13 @@ class UploadPage(BasePage):
                 )
                 
         except Exception as e:
+            debug_logger.critical(f"💥 КРИТИЧЕСКАЯ ОШИБКА: {str(e)}")
             error_message = f"Неожиданная ошибка при проверке файлов: {str(e)}"
             self.show_status('error', error_message)
+            
+            import traceback
+            full_traceback = traceback.format_exc()
+            debug_logger.error(f"🔍 Полный traceback:\n{full_traceback}")
             
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(
@@ -808,9 +847,8 @@ class UploadPage(BasePage):
                 "Критическая ошибка",
                 error_message
             )
-            
-            import traceback
-            print(f"Ошибка в check_files: {traceback.format_exc()}")
+        
+        debug_logger.info("🏁 Завершение метода check_files")
     
     def update_files_display(self):
         """Обновляет отображение файлов в интерфейсе"""

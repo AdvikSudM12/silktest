@@ -5,6 +5,13 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+# DEBUG: Добавляем логирование для отладки обработки Excel
+import sys
+script_dir = Path(__file__).parent.parent
+sys.path.append(str(script_dir))
+from pyqt_app.logger_config import get_logger
+debug_logger = get_logger("excel_operations")
+
 def process_excel_errors(excel_file_path=None, error_file_path=None):
     """
     Обрабатывает ошибки из файла сравнения и переносит проблемные строки в отдельный лист
@@ -16,9 +23,13 @@ def process_excel_errors(excel_file_path=None, error_file_path=None):
     Returns:
         dict: Результат обработки с ключами 'success', 'message', 'moved_count'
     """
+    debug_logger.info("📝 Начинаем обработку Excel ошибок")
+    debug_logger.debug(f"📄 Основной Excel: {excel_file_path}")
+    debug_logger.debug(f"📊 Файл ошибок: {error_file_path}")
     
     # Получаем абсолютный путь к директории скрипта
     script_dir = Path(__file__).parent.parent
+    debug_logger.debug(f"📂 Директория скрипта: {script_dir}")
     
     # Если пути не переданы, загружаем из paths.json
     if not excel_file_path:

@@ -7,6 +7,14 @@ from openpyxl.styles import PatternFill
 import unicodedata
 import re
 
+# DEBUG: Добавляем логирование для отладки процесса сравнения файлов
+# Импортируем логгер из pyqt_app
+import sys
+script_dir = Path(__file__).parent.parent
+sys.path.append(str(script_dir))
+from pyqt_app.logger_config import get_logger
+debug_logger = get_logger("compare_files")
+
 def normalize_filename(filename):
     """Нормализует имя файла для корректного сравнения"""
     if not filename or pd.isna(filename) or str(filename).strip() == '':
@@ -142,32 +150,50 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     Returns:
         dict: Результат сравнения с ключами 'success', 'results_file', 'error_count', 'message'
     """
+    debug_logger.info("🔍 Начинаем сравнение файлов с Excel")
+    debug_logger.debug(f"📄 Excel файл: {excel_file_path}")
+    debug_logger.debug(f"📁 Директория: {directory_path}")
+    
     import json
     
     # Получаем абсолютный путь к директории скрипта
     script_dir = Path(__file__).parent.parent
+    debug_logger.debug(f"📂 Директория скрипта: {script_dir}")
     
     # Если пути не переданы, загружаем из paths.json
     if not excel_file_path or not directory_path:
+        debug_logger.info("🔄 Загружаем пути из paths.json")
         paths_file = script_dir / 'pyqt_app' / 'data' / 'paths.json'
+        debug_logger.debug(f"📍 Путь к paths.json: {paths_file}")
+        
         if os.path.exists(paths_file):
+            debug_logger.success("✅ Файл paths.json найден")
             try:
                 with open(paths_file, 'r', encoding='utf-8') as f:
                     paths_data = json.load(f)
+                    debug_logger.debug(f"📊 Данные из paths.json: {paths_data}")
+                    
                     if not excel_file_path:
                         excel_file_path = paths_data.get('excel_file_path')
+                        debug_logger.debug(f"📄 Загружен Excel путь: {excel_file_path}")
                     if not directory_path:
                         directory_path = paths_data.get('directory_path')
+                        debug_logger.debug(f"📁 Загружен путь директории: {directory_path}")
             except Exception as e:
+                debug_logger.error(f"❌ Ошибка при загрузке paths.json: {str(e)}")
                 return {
                     'success': False,
                     'message': f"Ошибка при загрузке paths.json: {str(e)}",
                     'results_file': None,
                     'error_count': 0
                 }
+        else:
+            debug_logger.warning("⚠️ Файл paths.json не найден")
     
     # Проверяем наличие путей
+    debug_logger.info("🔍 Проверяем наличие путей")
     if not excel_file_path:
+        debug_logger.error("❌ Не указан путь к Excel файлу")
         return {
             'success': False,
             'message': "Не указан путь к Excel файлу",
@@ -176,6 +202,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
         }
     
     if not directory_path:
+        debug_logger.error("❌ Не указан путь к директории с файлами")
         return {
             'success': False,
             'message': "Не указан путь к директории с файлами",
@@ -183,7 +210,9 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             'error_count': 0
         }
     
+    debug_logger.info("🔍 Проверяем существование файлов")
     if not os.path.exists(excel_file_path):
+        debug_logger.error(f"❌ Excel файл не найден: {excel_file_path}")
         return {
             'success': False,
             'message': f"Excel файл не найден: {excel_file_path}",
@@ -192,23 +221,37 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
         }
         
     if not os.path.exists(directory_path):
+        debug_logger.error(f"❌ Директория не найдена: {directory_path}")
         return {
             'success': False,
             'message': f"Директория не найдена: {directory_path}",
             'results_file': None,
             'error_count': 0
-        }    # Создаем директорию results, если её нет
+        }    
+    
+    debug_logger.success("✅ Все пути проверены и существуют")
+    
+    # Создаем директорию results, если её нет
     results_dir = script_dir / 'results'
+    debug_logger.debug(f"📁 Директория результатов: {results_dir}")
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
+        debug_logger.info("📁 Создана директория для результатов")
 
     # Получаем список реальных файлов в директории
+    debug_logger.info("📋 Получаем список файлов в директории")
     actual_files = [f for f in os.listdir(directory_path)]
+    debug_logger.info(f"📊 Найдено {len(actual_files)} файлов в директории")
+    debug_logger.debug(f"📝 Список файлов: {actual_files[:10]}...")  # Показываем только первые 10
     
     try:
+        debug_logger.info("📖 Читаем Excel файл")
         # Читаем только Лист1 из Excel файла
         df = pd.read_excel(excel_file_path, sheet_name='Лист1', engine='openpyxl')
-    except Exception as e:        return {
+        debug_logger.success(f"✅ Excel файл прочитан, строк: {len(df)}")
+    except Exception as e:        
+        debug_logger.error(f"❌ Ошибка при чтении Excel файла: {str(e)}")
+        return {
             'success': False,
             'message': f"Ошибка при чтении Excel файла: {str(e)}",
             'results_file': None,
