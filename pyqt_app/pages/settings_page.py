@@ -12,6 +12,14 @@ import os
 from datetime import datetime
 
 from .base_page import BasePage
+from PyQt6.QtWidgets import *
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QPixmap
+import json
+
+# DEBUG: импорт логгера для системы отладки - нужно будет удалить позже
+from ..logger_config import get_logger
+debug_logger = get_logger("settings_page")
 
 class ContainerWithShadow(QFrame):
     """Кастомный виджет-контейнер с эффектом тени"""
@@ -364,7 +372,7 @@ class SettingsPage(BasePage):
                     for template_name in templates:
                         self.template_combo.addItem(template_name)
         except Exception as e:
-            print(f"Ошибка при загрузке шаблонов: {e}")
+            debug_logger.error(f"❌ Ошибка при загрузке шаблонов: {e}")
         
         # Подключаем обработчик изменения выбора
         self.template_combo.currentIndexChanged.connect(self.template_changed)
@@ -392,7 +400,7 @@ class SettingsPage(BasePage):
                             self.user_id_input.setText(template_data.get("user_id", ""))
                             self.jwt_input.setText(template_data.get("jwt", ""))
             except Exception as e:
-                print(f"Ошибка при загрузке данных шаблона: {e}")
+                debug_logger.error(f"❌ Ошибка при загрузке данных шаблона: {e}")
                 from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.warning(
                     self,

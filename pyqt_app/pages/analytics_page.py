@@ -10,6 +10,11 @@ from PyQt6.QtGui import QFont, QPainter, QPen, QColor
 from datetime import datetime
 import json
 import os
+import pandas as pd
+
+# DEBUG: импорт логгера для системы отладки - нужно будет удалить позже
+from ..logger_config import get_logger
+debug_logger = get_logger("analytics_page")
 
 from .base_page import BasePage
 
@@ -353,7 +358,7 @@ class AnalyticsPage(BasePage):
                 self.show_demo_data()
                     
         except Exception as e:
-            print(f"Ошибка при загрузке данных аналитики: {e}")
+            debug_logger.error(f"❌ Ошибка при загрузке данных аналитики: {e}")
             self.show_demo_data()
     
     def show_demo_data(self):
@@ -376,8 +381,6 @@ class AnalyticsPage(BasePage):
     def load_excel_data(self, file_path: str):
         """Загрузка данных из Excel файла"""
         try:
-            import pandas as pd
-            
             # Читаем файл результатов
             df = pd.read_excel(file_path, sheet_name='Результаты')
             
@@ -407,7 +410,7 @@ class AnalyticsPage(BasePage):
             self.save_button.setEnabled(True)
             
         except Exception as e:
-            print(f"Ошибка при чтении Excel файла: {e}")
+            debug_logger.error(f"❌ Ошибка при чтении Excel файла: {e}")
             
     def update_analytics_display(self, data: dict):
         """Обновление отображения аналитических данных"""
@@ -547,8 +550,6 @@ class AnalyticsPage(BasePage):
                     excel_path = paths_data.get('excel_file_path', '')
                     
                 if excel_path and os.path.exists(excel_path):
-                    import pandas as pd
-                    
                     # Читаем Excel файл
                     df = pd.read_excel(excel_path)
                     
@@ -581,7 +582,7 @@ class AnalyticsPage(BasePage):
             }
             
         except Exception as e:
-            print(f"Ошибка при чтении Excel статистики: {e}")
+            debug_logger.error(f"❌ Ошибка при чтении Excel статистики: {e}")
             # Возвращаем демонстрационные данные в случае ошибки
             return {
                 'total_releases': 8,

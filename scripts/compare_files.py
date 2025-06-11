@@ -78,7 +78,8 @@ def find_closest_match(filename, file_list):
         return '', 0
     
     # Выводим отладочную информацию
-    print_debug_info(filename, normalized_filename)
+    debug_logger.info(f"\n🔍 Искомый файл: '{filename}'")
+    debug_logger.info(f"🔧 Нормализованный файл: '{normalized_filename}'")
     
     # Разделяем имя и расширение искомого файла
     filename_name, filename_ext = os.path.splitext(normalized_filename)
@@ -103,12 +104,12 @@ def find_closest_match(filename, file_list):
             closest_match_original = original_file
             
             # Выводим информацию о найденном совпадении
-            print(f"\nНайдено лучшее совпадение:")
-            print(f"Искомый файл     : '{filename}'")
-            print(f"Нормализованный  : '{normalized_filename}'")
-            print(f"Найденный файл   : '{original_file}'")
-            print(f"Нормализованный  : '{normalized_file}'")
-            print(f"Процент сходства : {similarity}%")
+            debug_logger.debug(f"\n🎯 Найдено лучшее совпадение:")
+            debug_logger.debug(f"📝 Искомый файл     : '{filename}'")
+            debug_logger.debug(f"🔧 Нормализованный  : '{normalized_filename}'")
+            debug_logger.debug(f"📁 Найденный файл   : '{original_file}'")
+            debug_logger.debug(f"🔧 Нормализованный  : '{normalized_file}'")
+            debug_logger.debug(f"📊 Процент сходства : {similarity}%")
     
     return closest_match_original, max_similarity
 
@@ -344,18 +345,31 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     error_count = len(all_results)
     success_message = f"Найдено {error_count} файлов с различиями" if error_count > 0 else "Все файлы соответствуют записям в Excel"
     
-    return {
+    result = {
         'success': True,
         'message': success_message,
         'results_file': str(output_file),
         'error_count': error_count,
         'results_data': all_results    }
 
+    if not result['success']:
+        debug_logger.error(f"\n❌ {result['message']}")
+    else:
+        debug_logger.success(f"\n✅ {result['message']}")
+        debug_logger.info(f"📊 Результаты сохранены в файл: {result['results_file']}")
+        
+        if result.get('error_count', 0) > 0:
+            debug_logger.warning(f"⚠️ Найдено ошибок: {result['error_count']}")
+        else:
+            debug_logger.success(f"🎉 Ошибок не найдено!")
+
+    return result
+
 
 def print_debug_info(filename, normalized_filename):
     """Выводит отладочную информацию о нормализации файла"""
-    print(f"\nИскомый файл: '{filename}'")
-    print(f"Нормализованный файл: '{normalized_filename}'")
+    debug_logger.debug(f"🔍 Искомый файл: '{filename}'")
+    debug_logger.debug(f"🔧 Нормализованный файл: '{normalized_filename}'")
 
 
 def compare_files_interactive():
@@ -370,10 +384,10 @@ def compare_files_interactive():
     result = compare_files_with_excel(excel_file, str(files_directory))
     
     if result['success']:
-        print(f"\n{result['message']}")
-        print(f"Результаты сохранены в файл: {result['results_file']}")
+        debug_logger.success(f"✅ {result['message']}")
+        debug_logger.info(f"📊 Результаты сохранены в файл: {result['results_file']}")
     else:
-        print(f"Ошибка: {result['message']}")
+        debug_logger.error(f"❌ {result['message']}")
 
 
 if __name__ == "__main__":

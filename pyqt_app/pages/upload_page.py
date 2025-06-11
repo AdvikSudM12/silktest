@@ -600,7 +600,7 @@ class UploadPage(BasePage):
                 # Получаем все файлы в директории
                 files = [file for file in os.listdir(directory) if os.path.isfile(os.path.join(directory, file))]
             except Exception as e:
-                print(f"Ошибка при чтении директории: {e}")
+                debug_logger.error(f"❌ Ошибка при чтении директории: {e}")
                 files = []
             
             # Заполняем список файлов
@@ -875,7 +875,7 @@ class UploadPage(BasePage):
                     self.files_list_container.setVisible(False)
                     
             except Exception as e:
-                print(f"Ошибка при обновлении отображения файлов: {e}")
+                debug_logger.error(f"❌ Ошибка при обновлении отображения файлов: {e}")
     
     def open_settings(self):
         """Открытие настроек приложения в отдельном окне"""
@@ -906,9 +906,9 @@ class UploadPage(BasePage):
         
         try:
             # Добавляем подробную диагностику
-            print(f"[DEBUG] Сохранение в файл: {paths_file}")
-            print(f"[DEBUG] Данные для сохранения: {paths_data}")
-            print(f"[DEBUG] Директория существует: {os.path.exists(data_dir)}")
+            debug_logger.debug(f"💾 Сохранение в файл: {paths_file}")
+            debug_logger.debug(f"📊 Данные для сохранения: {paths_data}")
+            debug_logger.debug(f"📁 Директория существует: {os.path.exists(data_dir)}")
             
             with open(paths_file, "w", encoding="utf-8") as f:
                 json.dump(paths_data, f, ensure_ascii=False, indent=4)
@@ -918,14 +918,14 @@ class UploadPage(BasePage):
             if os.path.exists(paths_file):
                 with open(paths_file, "r", encoding="utf-8") as f:
                     saved_data = json.load(f)
-                    print(f"[DEBUG] Проверка записи: {saved_data}")
+                    debug_logger.debug(f"🔍 Проверка записи: {saved_data}")
                     
-            print(f"✅ Пути успешно сохранены: Excel={self.excel_file_path}, Directory={self.directory_path}")
+            debug_logger.success(f"✅ Пути успешно сохранены: Excel={self.excel_file_path}, Directory={self.directory_path}")
             
         except Exception as e:
-            print(f"❌ Ошибка при сохранении путей: {e}")
+            debug_logger.error(f"❌ Ошибка при сохранении путей: {e}")
             import traceback
-            traceback.print_exc()
+            debug_logger.error(f"🔍 Traceback: {traceback.format_exc()}")
     
     def load_saved_paths(self):
         """Загрузка сохраненных путей из файла"""
@@ -946,7 +946,7 @@ class UploadPage(BasePage):
                     self.excel_file_path = excel_path
                     file_basename = os.path.basename(excel_path)
                     self.excel_filename_label.setText(file_basename)
-                    print(f"Загружен Excel файл: {excel_path}")
+                    debug_logger.info(f"📄 Загружен Excel файл: {excel_path}")
                   # Загружаем директорию, если она существует  
                 directory_path = paths_data.get("directory_path", "")
                 if directory_path and os.path.exists(directory_path):
@@ -954,10 +954,10 @@ class UploadPage(BasePage):
                     
                     # Автоматически загружаем файлы из директории
                     self.load_directory_files(directory_path)
-                    print(f"Загружена директория: {directory_path}")
+                    debug_logger.info(f"📁 Загружена директория: {directory_path}")
                     
         except Exception as e:
-            print(f"Ошибка при загрузке путей: {e}")
+            debug_logger.error(f"❌ Ошибка при загрузке путей: {e}")
     
     def load_directory_files(self, directory):
         """Загрузка файлов из указанной директории"""
@@ -989,7 +989,7 @@ class UploadPage(BasePage):
                 self.show_status('warning', "В сохраненной директории не найдены файлы.")
                 
         except Exception as e:
-            print(f"Ошибка при загрузке файлов из директории: {e}")
+            debug_logger.error(f"❌ Ошибка при загрузке файлов из директории: {e}")
             self.show_status('error', f"Ошибка при загрузке файлов: {e}")
     
     def upload_files(self):

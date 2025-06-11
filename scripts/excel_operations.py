@@ -1,14 +1,11 @@
-import os
 import pandas as pd
-from openpyxl import load_workbook
+import os
 import json
-from pathlib import Path
+import importlib.util
 from datetime import datetime
+from difflib import SequenceMatcher
 
-# DEBUG: Добавляем логирование для отладки обработки Excel
-import sys
-script_dir = Path(__file__).parent.parent
-sys.path.append(str(script_dir))
+# DEBUG: импорт логгера для системы отладки - нужно будет удалить позже
 from pyqt_app.logger_config import get_logger
 debug_logger = get_logger("excel_operations")
 
@@ -155,9 +152,9 @@ def process_excel_errors_interactive():
     result = process_excel_errors(main_file, error_file)
     
     if result['success']:
-        print(f"\n{result['message']}")
+        debug_logger.success(f"✅ {result['message']}")
     else:
-        print(f"Ошибка: {result['message']}")
+        debug_logger.error(f"❌ {result['message']}")
 
 
 if __name__ == "__main__":

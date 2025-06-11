@@ -59,7 +59,7 @@ class ScriptManager:
                 with open(paths_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
-                print(f"Ошибка при загрузке paths.json: {str(e)}")
+                debug_logger.error(f"❌ Ошибка при загрузке paths.json: {str(e)}")
         return {}
     
     def run_file_comparison(self) -> Dict[str, Any]:
@@ -222,7 +222,7 @@ class ScriptManager:
         script_path = os.path.join(self.scripts_dir, script_name)
         
         if not os.path.exists(script_path):
-            print(f"Ошибка: Скрипт {script_name} не найден в {self.scripts_dir}")
+            debug_logger.error(f"❌ Скрипт {script_name} не найден в {self.scripts_dir}")
             return None
         
         try:
@@ -234,7 +234,7 @@ class ScriptManager:
                 self.loaded_modules[script_name] = module
                 return module
         except Exception as e:
-            print(f"Ошибка при загрузке скрипта {script_name}: {str(e)}")
+            debug_logger.error(f"❌ Ошибка при загрузке скрипта {script_name}: {str(e)}")
             return None
     
     def get_available_scripts(self) -> List[str]:
@@ -265,12 +265,12 @@ class ScriptManager:
             return False
         
         if not hasattr(module, function_name):
-            print(f"Ошибка: Функция {function_name} не найдена в скрипте {script_name}")
+            debug_logger.error(f"❌ Функция {function_name} не найдена в скрипте {script_name}")
             return False
         
         function = getattr(module, function_name)
         if not callable(function):
-            print(f"Ошибка: {function_name} не является функцией в скрипте {script_name}")
+            debug_logger.error(f"❌ {function_name} не является функцией в скрипте {script_name}")
             return False
         
         # Регистрируем функцию с уникальным именем
@@ -290,20 +290,20 @@ class ScriptManager:
             Результат выполнения функции
         """
         if function_key not in self.available_functions:
-            print(f"Ошибка: Функция {function_key} не зарегистрирована")
+            debug_logger.error(f"❌ Функция {function_key} не зарегистрирована")
             return None
         
         try:
             return self.available_functions[function_key](*args, **kwargs)
         except Exception as e:
-            print(f"Ошибка при вызове функции {function_key}: {str(e)}")
+            debug_logger.error(f"❌ Ошибка при вызове функции {function_key}: {str(e)}")
             return None
 
 
 # Пример использования
 if __name__ == "__main__":
     manager = ScriptManager()
-    print("Доступные скрипты:", manager.get_available_scripts())
+    debug_logger.info(f"📋 Доступные скрипты: {manager.get_available_scripts()}")
     
     # Пример загрузки и вызова функции из скрипта
     # manager.register_function("compare_files.py", "compare_two_files")
