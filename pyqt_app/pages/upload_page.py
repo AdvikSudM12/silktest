@@ -12,8 +12,11 @@ from .base_page import BasePage
 from pyqt_app.resources.icons import get_excel_icon, get_folder_icon
 
 # DEBUG: Добавляем логирование для отладки процесса проверки файлов
-from pyqt_app.logger_config import get_logger
+from ..logger_config import get_logger
 debug_logger = get_logger("upload_page")
+
+# Импорт сессионного менеджера данных
+from ..session_data_manager import session_manager
 
 class ContainerWithShadow(QFrame):
     """Кастомный виджет-контейнер с эффектом тени"""
@@ -791,6 +794,14 @@ class UploadPage(BasePage):
                         # Передаем данные на страницу аналитики
                         self.comparison_completed.emit(comparison_result)
                         
+                        # НОВОЕ: сохраняем в сессионные данные
+                        debug_logger.debug("💾 Сохраняем данные в сессионное хранилище")
+                        session_manager.save_comparison_result(
+                            comparison_result=comparison_result,
+                            excel_file_path=self.excel_file_path,
+                            directory_path=self.directory_path
+                        )
+                        
                     else:
                         debug_logger.warning(f"⚠️ Найдены ошибки: {error_count}")
                         # Есть ошибки - показываем детали
@@ -819,6 +830,14 @@ class UploadPage(BasePage):
                         # Передаем данные на страницу аналитики
                         self.comparison_completed.emit(comparison_result)
                         
+                        # НОВОЕ: сохраняем в сессионные данные
+                        debug_logger.debug("💾 Сохраняем данные в сессионное хранилище")
+                        session_manager.save_comparison_result(
+                            comparison_result=comparison_result,
+                            excel_file_path=self.excel_file_path,
+                            directory_path=self.directory_path
+                        )
+                        
                 else:
                     debug_logger.info("ℹ️ Workflow завершен без обработки ошибок")
                     # Workflow завершен без обработки ошибок
@@ -827,6 +846,14 @@ class UploadPage(BasePage):
                     
                     # Передаем данные на страницу аналитики
                     self.comparison_completed.emit(comparison_result)
+                    
+                    # НОВОЕ: сохраняем в сессионные данные
+                    debug_logger.debug("💾 Сохраняем данные в сессионное хранилище")
+                    session_manager.save_comparison_result(
+                        comparison_result=comparison_result,
+                        excel_file_path=self.excel_file_path,
+                        directory_path=self.directory_path
+                    )
                     
             else:
                 debug_logger.error("❌ Ошибка в выполнении workflow")

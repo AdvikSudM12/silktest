@@ -16,6 +16,9 @@ import pandas as pd
 from ..logger_config import get_logger
 debug_logger = get_logger("analytics_page")
 
+# Импорт сессионного менеджера данных
+from ..session_data_manager import session_manager
+
 from .base_page import BasePage
 
 class AnalyticsCard(QFrame):
@@ -329,9 +332,21 @@ class AnalyticsPage(BasePage):
         self.report_layout.addWidget(button_container)
         
     def load_analytics_data(self):
-        """Загрузка данных аналитики из последнего отчета"""
+        """Загрузка данных аналитики из сессионного хранилища или последнего отчета"""
         try:
-            # Путь к папке с результатами
+            debug_logger.info("📊 Загружаем данные аналитики")
+            
+            # ПРИОРИТЕТ 1: Проверяем сессионные данные
+            if session_manager.has_analytics_data():
+                debug_logger.info("✅ Найдены сессионные данные аналитики")
+                session_data = session_manager.get_latest_analytics_data()
+                if session_data:
+                    self.load_from_session_data(session_data)
+                    return
+            
+            debug_logger.info("⚠️ Сессионные данные не найдены, ищем файлы results")
+            
+            # ПРИОРИТЕТ 2: Ищем файлы в папке results (старый метод)
             results_dir = os.path.join(os.path.dirname(__file__), "..", "..", "results")
             
             if os.path.exists(results_dir):
@@ -343,6 +358,8 @@ class AnalyticsPage(BasePage):
                     result_files.sort(reverse=True)  # Сортируем по убыванию (последний файл первый)
                     latest_file = result_files[0]
                     
+                    debug_logger.info(f"📄 Найден файл результатов: {latest_file}")
+                    
                     # Извлекаем дату из имени файла
                     date_part = latest_file.replace('file_comparison_results_', '').replace('.xlsx', '')
                     formatted_date = date_part.replace('_', ' ').replace('-', '.')
@@ -350,15 +367,40 @@ class AnalyticsPage(BasePage):
                     
                     # Пытаемся загрузить данные из Excel файла
                     self.load_excel_data(os.path.join(results_dir, latest_file))
-                else:
-                    # Если нет файлов результатов, показываем демо-данные
-                    self.show_demo_data()
-            else:
-                # Если папка results не существует, показываем демо-данные
-                self.show_demo_data()
+                    return
+            
+            debug_logger.warning("⚠️ Нет данных для аналитики, показываем демо")
+            # ПРИОРИТЕТ 3: Показываем демо-данные
+            self.show_demo_data()
                     
         except Exception as e:
             debug_logger.error(f"❌ Ошибка при загрузке данных аналитики: {e}")
+            self.show_demo_data()
+    
+    def load_from_session_data(self, session_data: dict):
+        """Загружает данные аналитики из сессионного хранилища"""
+        try:
+            debug_logger.info("📋 Загружаем данные из сессионного хранилища")
+            
+            comparison_result = session_data.get('comparison_result', {})
+            analytics_summary = session_data.get('analytics_summary', {})
+            timestamp = session_data.get('timestamp', '')
+            
+            # Обновляем дату
+            if timestamp:
+                from datetime import datetime
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00') if timestamp.endswith('Z') else timestamp)
+                formatted_date = dt.strftime('%d.%m.%Y %H:%M')
+                self.date_label.setText(f"Дата: {formatted_date}")
+            
+            # Используем существующий метод для обновления UI
+            self.update_from_comparison_result(comparison_result)
+            
+            debug_logger.success("✅ Данные из сессии успешно загружены")
+            
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка при загрузке из сессии: {e}")
+            # Fallback к старому методу
             self.show_demo_data()
     
     def show_demo_data(self):

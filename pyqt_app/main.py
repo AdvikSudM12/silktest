@@ -9,6 +9,9 @@ from PyQt6.QtCore import Qt
 from pyqt_app.components import TabBar
 from pyqt_app.pages import UploadPage, AnalyticsPage, HelpPage, SettingsPage
 
+# Импорт сессионного менеджера для очистки при закрытии
+from pyqt_app.session_data_manager import session_manager
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -75,6 +78,18 @@ class MainWindow(QMainWindow):
     def connect_scripts(self):
         """Метод для интеграции существующих скриптов проекта"""
         pass
+    
+    def closeEvent(self, event):
+        """Обработчик закрытия приложения - очищаем сессионные данные"""
+        try:
+            # Очищаем все сессионные данные при закрытии приложения
+            session_manager.clear_all_session_data()
+            print("🗑️ Все сессионные данные очищены при закрытии приложения")
+        except Exception as e:
+            print(f"⚠️ Ошибка при очистке сессионных данных: {e}")
+        
+        # Принимаем событие закрытия
+        event.accept()
 
 
 if __name__ == "__main__":
