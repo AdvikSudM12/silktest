@@ -33,7 +33,7 @@ class SessionDataManager:
         debug_logger.debug(f"📁 Директория данных: {self.data_dir}")
         debug_logger.debug(f"📄 Файл сессии: {self.session_file}")
         
-        # Очищаем все старые сессионные данные при запуске (включая пути)
+        # Очищаем все старые сессионные данные при запуске (создает пустые файлы)
         self.clear_all_session_data()
     
     def save_comparison_result(self, comparison_result: Dict[str, Any], 
@@ -98,6 +98,11 @@ class SessionDataManager:
             with open(self.session_file, "r", encoding="utf-8") as f:
                 session_data = json.load(f)
             
+            # Проверяем что файл не пустой
+            if not session_data or len(session_data) == 0:
+                debug_logger.warning("📭 Файл сессионных данных пустой")
+                return None
+            
             debug_logger.success("✅ Сессионные данные успешно загружены")
             debug_logger.debug(f"📅 Дата создания: {session_data.get('timestamp', 'Неизвестно')}")
             
@@ -109,17 +114,20 @@ class SessionDataManager:
     
     def clear_session_data(self) -> bool:
         """
-        Очищает сессионные данные
+        Очищает сессионные данные (перезаписывает пустыми данными)
         
         Returns:
             True если очистка успешна
         """
         try:
-            if self.session_file.exists():
-                os.remove(self.session_file)
-                debug_logger.info("🗑️ Сессионные данные очищены")
-            else:
-                debug_logger.debug("📭 Сессионные данные отсутствуют")
+            # Создаем пустую структуру данных
+            empty_session_data = {}
+            
+            # Перезаписываем файл пустыми данными вместо удаления
+            with open(self.session_file, "w", encoding="utf-8") as f:
+                json.dump(empty_session_data, f, ensure_ascii=False, indent=2)
+            
+            debug_logger.info("🗑️ Сессионные данные очищены (файл перезаписан)")
             return True
             
         except Exception as e:
@@ -128,18 +136,26 @@ class SessionDataManager:
     
     def clear_session_paths(self) -> bool:
         """
-        Очищает сессионные пути (paths.json)
+        Очищает сессионные пути (перезаписывает пустыми данными)
         
         Returns:
             True если очистка успешна
         """
         try:
+            # Создаем пустую структуру путей
+            empty_paths_data = {
+                "excel_file_path": "",
+                "directory_path": "",
+                "last_updated": ""
+            }
+            
             paths_file = self.data_dir / "paths.json"
-            if paths_file.exists():
-                os.remove(paths_file)
-                debug_logger.info("📁 Сессионные пути очищены")
-            else:
-                debug_logger.debug("📭 Файл путей отсутствует")
+            
+            # Перезаписываем файл пустыми данными вместо удаления
+            with open(paths_file, "w", encoding="utf-8") as f:
+                json.dump(empty_paths_data, f, ensure_ascii=False, indent=2)
+            
+            debug_logger.info("📁 Сессионные пути очищены (файл перезаписан)")
             return True
             
         except Exception as e:
@@ -170,7 +186,19 @@ class SessionDataManager:
         Returns:
             True если данные есть
         """
-        return self.session_file.exists()
+        try:
+            if not self.session_file.exists():
+                return False
+            
+            # Проверяем что файл не пустой
+            with open(self.session_file, "r", encoding="utf-8") as f:
+                session_data = json.load(f)
+            
+            # Файл считается пустым если это пустой словарь или None
+            return bool(session_data and len(session_data) > 0)
+            
+        except Exception:
+            return False
     
     def _get_paths_from_config(self) -> tuple[str, str]:
         """
@@ -184,9 +212,16 @@ class SessionDataManager:
             if paths_file.exists():
                 with open(paths_file, "r", encoding="utf-8") as f:
                     paths_data = json.load(f)
-                    excel_path = paths_data.get("excel_file_path", "")
-                    directory_path = paths_data.get("directory_path", "")
-                    return excel_path, directory_path
+                    
+                excel_path = paths_data.get("excel_file_path", "")
+                directory_path = paths_data.get("directory_path", "")
+                
+                # Проверяем что пути не пустые
+                if not excel_path or not directory_path:
+                    debug_logger.debug("📭 Пути в файле пустые")
+                    return "", ""
+                    
+                return excel_path, directory_path
             return "", ""
             
         except Exception as e:
