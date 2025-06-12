@@ -369,13 +369,13 @@ class AnalyticsPage(BasePage):
                     self.load_excel_data(os.path.join(results_dir, latest_file))
                     return
             
-            debug_logger.warning("⚠️ Нет данных для аналитики, показываем демо")
-            # ПРИОРИТЕТ 3: Показываем демо-данные
-            self.show_demo_data()
+            debug_logger.warning("⚠️ Нет данных для аналитики, показываем пустое состояние")
+            # ПРИОРИТЕТ 3: Показываем пустое состояние
+            self.show_empty_state()
                     
         except Exception as e:
             debug_logger.error(f"❌ Ошибка при загрузке данных аналитики: {e}")
-            self.show_demo_data()
+            self.show_empty_state()
     
     def load_from_session_data(self, session_data: dict):
         """Загружает данные аналитики из сессионного хранилища"""
@@ -400,24 +400,39 @@ class AnalyticsPage(BasePage):
             
         except Exception as e:
             debug_logger.error(f"❌ Ошибка при загрузке из сессии: {e}")
-            # Fallback к старому методу
-            self.show_demo_data()
+            # Fallback к пустому состоянию
+            self.show_empty_state()
     
-    def show_demo_data(self):
-        """Показывает демонстрационные данные при отсутствии реальных результатов"""
+    def show_empty_state(self):
+        """Показывает пустое состояние когда нет данных для аналитики"""
+        # Показываем пустые значения
         self.update_analytics_display({
-            'total_releases': 8,
-            'total_tracks': 17,
-            'total_covers': 8,
-            'found_audio': "17 из 17",
-            'found_covers': "8 из 8", 
-            'all_found': True
+            'total_releases': 0,
+            'total_tracks': 0,
+            'total_covers': 0,
+            'found_audio': "— из —",
+            'found_covers': "— из —", 
+            'all_found': False
         })
         
-        # Обновляем текст результата для демо
-        self.result_text.setText("Демонстрационные данные. Выполните проверку файлов для получения актуальной информации.")
+        # Специальное оформление для пустого состояния
+        self.result_container.setStyleSheet("""
+            QFrame {
+                background-color: #f5f5f5;
+                border: 1px solid #e0e0e0;
+                border-radius: 15px;
+                border-right: 3px solid #cccccc;
+                border-bottom: 3px solid #cccccc;
+                padding: 15px;
+            }
+        """)
+        self.result_icon.setText("📊")
+        self.result_text.setText("Нет данных для отображения. Перейдите на страницу 'Загрузка' и выполните проверку файлов.")
         
-        # Кнопка остается неактивной для демо-данных
+        # Обновляем дату
+        self.date_label.setText("Дата: —")
+        
+        # Кнопка остается неактивной
         self.save_button.setEnabled(False)
             
     def load_excel_data(self, file_path: str):
@@ -616,18 +631,18 @@ class AnalyticsPage(BasePage):
                         'total_covers': total_covers
                     }
             
-            # Возвращаем демонстрационные данные если не удалось прочитать Excel
+            # Возвращаем нули если не удалось прочитать Excel
             return {
-                'total_releases': 8,
-                'total_tracks': 17,
-                'total_covers': 8
+                'total_releases': 0,
+                'total_tracks': 0,
+                'total_covers': 0
             }
             
         except Exception as e:
             debug_logger.error(f"❌ Ошибка при чтении Excel статистики: {e}")
-            # Возвращаем демонстрационные данные в случае ошибки
+            # Возвращаем нули в случае ошибки
             return {
-                'total_releases': 8,
-                'total_tracks': 17,
-                'total_covers': 8
+                'total_releases': 0,
+                'total_tracks': 0,
+                'total_covers': 0
             }
