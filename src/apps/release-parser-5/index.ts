@@ -9,8 +9,8 @@ import { tableFlowIterations  } from 'src/tools/flow'
 import apiConfig from 'src/configs/api'
 import countryCodes from 'src/configs/countries-codes'
 import releaseConfig from 'src/configs/release'
-import { getReleasesDataJson } from 'src/apps/test/release-parser-5/utils/releases-data'
-import { uploadingFile, testFilePath } from 'src/apps/test/release-parser-5/utils/uploading'
+import { getReleasesDataJson } from 'src/apps/release-parser-5/utils/releases-data'
+import { uploadingFile, testFilePath } from 'src/apps/release-parser-5/utils/uploading'
 
 // Интерфейсы для типизации
 interface UploadStats {

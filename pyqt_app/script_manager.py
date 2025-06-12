@@ -385,7 +385,7 @@ class ScriptManager:
         
         try:
             # Путь к скрипту загрузки
-            script_path = os.path.join(self.root_dir, 'src', 'apps', 'test', 'release-parser-5')
+            script_path = os.path.join(self.root_dir, 'src', 'apps', 'release-parser-5')
             debug_logger.debug(f"📂 Путь к скрипту: {script_path}")
             
             # Проверяем существование скрипта
