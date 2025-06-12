@@ -298,6 +298,194 @@ class ScriptManager:
         except Exception as e:
             debug_logger.error(f"❌ Ошибка при вызове функции {function_key}: {str(e)}")
             return None
+    
+    def check_nodejs_dependencies(self) -> Dict[str, Any]:
+        """
+        Проверяет наличие Node.js и ts-node для запуска TypeScript скриптов
+        
+        Returns:
+            Результат проверки зависимостей
+        """
+        debug_logger.info("🔍 Проверка зависимостей Node.js")
+        
+        try:
+            import subprocess
+            
+            # Проверяем Node.js
+            try:
+                result = subprocess.run(['node', '--version'], 
+                                      capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    node_version = result.stdout.strip()
+                    debug_logger.success(f"✅ Node.js найден: {node_version}")
+                else:
+                    debug_logger.error("❌ Node.js не найден")
+                    return {
+                        'success': False,
+                        'message': "Node.js не установлен. Установите Node.js для загрузки релизов.",
+                        'missing': ['nodejs']
+                    }
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                debug_logger.error("❌ Node.js не найден или недоступен")
+                return {
+                    'success': False,
+                    'message': "Node.js не найден. Установите Node.js для загрузки релизов.",
+                    'missing': ['nodejs']
+                }
+            
+            # Проверяем ts-node через npx (не требует глобальной установки)
+            try:
+                result = subprocess.run(['npx', 'ts-node', '--version'], 
+                                      capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    ts_node_version = result.stdout.strip()
+                    debug_logger.success(f"✅ ts-node доступен через npx: {ts_node_version}")
+                else:
+                    debug_logger.warning("⚠️ ts-node недоступен через npx")
+                    return {
+                        'success': False,
+                        'message': "ts-node недоступен. Проверьте установку Node.js и npm.",
+                        'missing': ['ts-node']
+                    }
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                debug_logger.warning("⚠️ npx или ts-node недоступны")
+                return {
+                    'success': False,
+                    'message': "npx или ts-node недоступны. Проверьте установку Node.js.",
+                    'missing': ['ts-node']
+                }
+            
+            debug_logger.success("🎉 Все зависимости Node.js найдены")
+            return {
+                'success': True,
+                'message': "Все зависимости Node.js доступны",
+                'node_version': node_version,
+                'ts_node_version': ts_node_version
+            }
+            
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка проверки зависимостей: {str(e)}")
+            return {
+                'success': False,
+                'message': f"Ошибка проверки зависимостей: {str(e)}",
+                'error': str(e)
+            }
+
+    def run_release_upload(self) -> Dict[str, Any]:
+        """
+        Запускает загрузку релизов через TypeScript скрипт release-parser-5_test
+        
+        Returns:
+            Результат загрузки релизов
+        """
+        debug_logger.info("🚀 Запуск загрузки релизов")
+        
+        # Пропускаем проверку зависимостей - скрипт работает через npx
+        debug_logger.info("🔧 Запуск без проверки зависимостей (используем npx)")
+        
+        try:
+            # Путь к тестовому скрипту загрузки
+            script_path = os.path.join(self.root_dir, 'src', 'apps', 'test', 'release-parser-5_test')
+            debug_logger.debug(f"📂 Путь к скрипту: {script_path}")
+            
+            # Проверяем существование скрипта
+            index_file = os.path.join(script_path, 'index.ts')
+            if not os.path.exists(index_file):
+                debug_logger.error(f"❌ Файл скрипта не найден: {index_file}")
+                return {
+                    'success': False,
+                    'message': f"Скрипт загрузки не найден: {index_file}"
+                }
+            
+            debug_logger.success("✅ Скрипт загрузки найден")
+            
+            # Проверяем наличие .env файла с токенами
+            env_file = os.path.join(self.root_dir, '.env')
+            if not os.path.exists(env_file):
+                debug_logger.error("❌ Файл .env не найден")
+                return {
+                    'success': False,
+                    'message': "Файл .env с токенами не найден. Настройте токены в разделе НАСТРОЙКИ."
+                }
+            
+            debug_logger.success("✅ Файл .env найден")
+            
+            # Загружаем пути из paths.json
+            paths = self.load_paths_from_json()
+            if not paths:
+                debug_logger.error("❌ Пути не настроены")
+                return {
+                    'success': False,
+                    'message': "Пути к папкам не настроены. Настройте пути в разделе UPLOAD."
+                }
+            
+            debug_logger.success(f"✅ Пути загружены: {list(paths.keys())}")
+            
+            # Запускаем TypeScript скрипт через Node.js
+            import subprocess
+            
+            debug_logger.info("🔧 Запуск TypeScript скрипта через Node.js")
+            
+            # Команда для запуска скрипта с полным путем для Windows
+            import shutil
+            npx_path = shutil.which('npx')
+            if npx_path:
+                cmd = [npx_path, 'ts-node', 'index.ts']
+                debug_logger.debug(f"🔍 Найден npx: {npx_path}")
+            else:
+                # Fallback: пробуем через cmd
+                cmd = ['cmd', '/c', 'npx', 'ts-node', 'index.ts']
+                debug_logger.warning("⚠️ npx не найден, используем cmd /c")
+            
+            debug_logger.debug(f"💻 Команда: {' '.join(cmd)}")
+            debug_logger.debug(f"📁 Рабочая директория: {script_path}")
+            
+            # Запускаем процесс
+            process = subprocess.Popen(
+                cmd,
+                cwd=script_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding='utf-8'
+            )
+            
+            debug_logger.info("⏳ Ожидание завершения загрузки...")
+            
+            # Ждем завершения процесса
+            stdout, stderr = process.communicate()
+            
+            debug_logger.debug(f"📤 STDOUT: {stdout}")
+            if stderr:
+                debug_logger.warning(f"⚠️ STDERR: {stderr}")
+            
+            # Проверяем код возврата
+            if process.returncode == 0:
+                debug_logger.success("🎉 Загрузка релизов завершена успешно!")
+                return {
+                    'success': True,
+                    'message': "Релизы успешно загружены на платформу",
+                    'output': stdout,
+                    'stage': 'upload_completed'
+                }
+            else:
+                debug_logger.error(f"❌ Ошибка загрузки, код возврата: {process.returncode}")
+                return {
+                    'success': False,
+                    'message': f"Ошибка при загрузке релизов: {stderr or stdout}",
+                    'error_code': process.returncode,
+                    'stage': 'upload_failed'
+                }
+                
+        except Exception as e:
+            debug_logger.critical(f"💥 Критическая ошибка при загрузке: {str(e)}")
+            import traceback
+            debug_logger.error(f"🔍 Traceback: {traceback.format_exc()}")
+            return {
+                'success': False,
+                'message': f"Критическая ошибка при загрузке релизов: {str(e)}",
+                'stage': 'critical_error'
+            }
 
 
 # Пример использования

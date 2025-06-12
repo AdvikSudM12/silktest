@@ -514,6 +514,58 @@ class UploadPage(BasePage):
         
         container_layout.addWidget(action_buttons_container)
         
+        # Индикатор прогресса загрузки - изначально скрыт
+        self.progress_container = QFrame()
+        self.progress_container.setStyleSheet("""
+            QFrame {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 15px;
+                border-right: 3px solid #ced4da;
+                border-bottom: 3px solid #ced4da;
+            }
+        """)
+        progress_layout = QVBoxLayout(self.progress_container)
+        progress_layout.setContentsMargins(20, 15, 20, 15)
+        progress_layout.setSpacing(10)
+        
+        # Заголовок прогресса
+        self.progress_title = QLabel("🚀 Загрузка релизов...")
+        self.progress_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #495057;")
+        
+        # Индикатор прогресса
+        from PyQt6.QtWidgets import QProgressBar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #dee2e6;
+                border-radius: 8px;
+                text-align: center;
+                font-weight: bold;
+                color: #495057;
+                background-color: #e9ecef;
+            }
+            QProgressBar::chunk {
+                background-color: #19c790;
+                border-radius: 6px;
+            }
+        """)
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(0)  # Неопределенный прогресс
+        
+        # Текст статуса прогресса
+        self.progress_status = QLabel("Подготовка к загрузке...")
+        self.progress_status.setStyleSheet("font-size: 14px; color: #6c757d;")
+        
+        progress_layout.addWidget(self.progress_title)
+        progress_layout.addWidget(self.progress_bar)
+        progress_layout.addWidget(self.progress_status)
+        
+        # По умолчанию скрываем контейнер прогресса
+        self.progress_container.setVisible(False)
+        
+        container_layout.addWidget(self.progress_container)
+        
         # Статус проверки - изначально скрыт
         self.status_container = QFrame()
         self.status_container.setStyleSheet("""
@@ -719,7 +771,35 @@ class UploadPage(BasePage):
     def hide_status(self):
         """Скрывает статус операции"""
         self.status_container.setVisible(False)
-    
+
+    def show_progress(self, title="🚀 Загрузка релизов...", status="Подготовка к загрузке..."):
+        """
+        Показывает индикатор прогресса
+        
+        Args:
+            title (str): Заголовок прогресса
+            status (str): Текст статуса
+        """
+        self.progress_title.setText(title)
+        self.progress_status.setText(status)
+        self.progress_container.setVisible(True)
+        debug_logger.debug(f"📊 Показан прогресс: {title} - {status}")
+
+    def update_progress(self, status):
+        """
+        Обновляет текст статуса прогресса
+        
+        Args:
+            status (str): Новый текст статуса
+        """
+        self.progress_status.setText(status)
+        debug_logger.debug(f"🔄 Обновлен прогресс: {status}")
+
+    def hide_progress(self):
+        """Скрывает индикатор прогресса"""
+        self.progress_container.setVisible(False)
+        debug_logger.debug("📊 Прогресс скрыт")
+
     def check_files(self):
         """Проверка файлов в выбранной директории с использованием интегрированных скриптов"""
         debug_logger.info("🔍 Началась проверка файлов")
@@ -1034,7 +1114,10 @@ class UploadPage(BasePage):
             self.show_status('error', f"Ошибка при загрузке файлов: {e}")
     
     def upload_files(self):
-        """Загрузка файлов для обработки"""
+        """Загрузка файлов через интеграцию с TypeScript скриптом"""
+        debug_logger.info("🚀 Начинаем загрузку файлов")
+        
+        # Проверяем наличие необходимых данных
         if not self.excel_file_path or not self.directory_path:
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(
@@ -1042,21 +1125,83 @@ class UploadPage(BasePage):
                 "Не все данные выбраны",
                 "Пожалуйста, выберите Excel файл и директорию с файлами."
             )
+            debug_logger.warning("⚠️ Не выбраны необходимые пути для загрузки")
             return
             
-        # Показываем статус загрузки
-        self.show_status('loading', "Загрузка файлов, пожалуйста подождите...")
-            
-        # Здесь будет логика загрузки файлов и интеграции с бэкендом
-        from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.information(
-            self,
-            "Загрузка файлов",
-            "Начата загрузка файлов для обработки..."
-        )
+        debug_logger.info(f"📄 Excel файл: {self.excel_file_path}")
+        debug_logger.info(f"📁 Директория: {self.directory_path}")
         
-        # Для демонстрации - показываем успешный статус
-        self.show_status('success', "Загрузка файлов успешно выполнена!")
+        # Показываем индикатор прогресса
+        self.show_progress("🚀 Загрузка релизов...", "Подготовка к загрузке...")
+        
+        try:
+            # Импортируем ScriptManager
+            from pyqt_app.script_manager import ScriptManager
+            
+            # Создаем экземпляр менеджера скриптов
+            script_manager = ScriptManager()
+            debug_logger.info("📦 ScriptManager инициализирован")
+            
+            # Обновляем прогресс
+            self.update_progress("Проверка зависимостей Node.js...")
+            debug_logger.info("🔧 Запускаем скрипт загрузки релизов")
+            
+            # Обновляем прогресс
+            self.update_progress("Запуск скрипта загрузки релизов...")
+            
+            # Запускаем загрузку релизов
+            result = script_manager.run_release_upload()
+            
+            debug_logger.debug(f"📊 Результат загрузки: {result}")
+            
+            # Скрываем прогресс
+            self.hide_progress()
+            
+            # Обрабатываем результат
+            if result['success']:
+                debug_logger.success("🎉 Загрузка релизов завершена успешно!")
+                
+                # Показываем успешный статус
+                self.show_status('success', result['message'])
+                
+                # Показываем диалог с результатом
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self,
+                    "Загрузка завершена",
+                    f"✅ {result['message']}\n\nВсе релизы успешно загружены на платформу!"
+                )
+                
+            else:
+                debug_logger.error(f"❌ Ошибка загрузки: {result['message']}")
+                
+                # Показываем статус ошибки
+                self.show_status('error', f"Ошибка: {result['message']}")
+                
+                # Показываем диалог с ошибкой
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.critical(
+                    self,
+                    "Ошибка загрузки",
+                    f"❌ {result['message']}\n\nПроверьте настройки и попробуйте снова."
+                )
+                
+        except Exception as e:
+            debug_logger.critical(f"💥 Критическая ошибка при загрузке: {str(e)}")
+            
+            # Скрываем прогресс
+            self.hide_progress()
+            
+            # Показываем статус критической ошибки
+            self.show_status('error', f"Критическая ошибка: {str(e)}")
+            
+            # Показываем диалог с критической ошибкой
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Критическая ошибка",
+                f"💥 Произошла критическая ошибка:\n{str(e)}\n\nОбратитесь к разработчику."
+            )
     
     def continue_upload(self):
         """Продолжение загрузки файлов"""
