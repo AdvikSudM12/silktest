@@ -18,6 +18,10 @@ debug_logger = get_logger("upload_page")
 # Импорт сессионного менеджера данных
 from ..session_data_manager import session_manager
 
+# Импорты для асинхронной загрузки
+from ..workers import UploadWorker
+from ..dialogs import UploadProgressDialog
+
 class ContainerWithShadow(QFrame):
     """Кастомный виджет-контейнер с эффектом тени"""
     def __init__(self, parent=None):
@@ -1114,8 +1118,8 @@ class UploadPage(BasePage):
             self.show_status('error', f"Ошибка при загрузке файлов: {e}")
     
     def upload_files(self):
-        """Загрузка файлов через интеграцию с TypeScript скриптом"""
-        debug_logger.info("🚀 Начинаем загрузку файлов")
+        """Асинхронная загрузка файлов через TypeScript скрипт"""
+        debug_logger.info("🚀 Начинаем асинхронную загрузку файлов")
         
         # Проверяем наличие необходимых данных
         if not self.excel_file_path or not self.directory_path:
@@ -1131,9 +1135,6 @@ class UploadPage(BasePage):
         debug_logger.info(f"📄 Excel файл: {self.excel_file_path}")
         debug_logger.info(f"📁 Директория: {self.directory_path}")
         
-        # Показываем индикатор прогресса
-        self.show_progress("🚀 Загрузка релизов...", "Подготовка к загрузке...")
-        
         try:
             # Импортируем ScriptManager
             from pyqt_app.script_manager import ScriptManager
@@ -1142,58 +1143,32 @@ class UploadPage(BasePage):
             script_manager = ScriptManager()
             debug_logger.info("📦 ScriptManager инициализирован")
             
-            # Обновляем прогресс
-            self.update_progress("Проверка зависимостей Node.js...")
-            debug_logger.info("🔧 Запускаем скрипт загрузки релизов")
+            # Создаем и настраиваем воркер
+            self.upload_worker = UploadWorker(script_manager)
             
-            # Обновляем прогресс
-            self.update_progress("Запуск скрипта загрузки релизов...")
+            # Создаем и показываем диалог прогресса
+            self.progress_dialog = UploadProgressDialog(self)
             
-            # Запускаем загрузку релизов
-            result = script_manager.run_release_upload()
+            # Подключаем сигналы воркера к диалогу
+            self.upload_worker.progress_updated.connect(self.progress_dialog.update_progress)
+            self.upload_worker.progress_percent.connect(self.progress_dialog.update_progress_percent)
+            self.upload_worker.stage_changed.connect(self.progress_dialog.update_stage)
+            self.upload_worker.finished.connect(self.on_upload_finished)
+            self.upload_worker.error_occurred.connect(self.progress_dialog.on_error)
             
-            debug_logger.debug(f"📊 Результат загрузки: {result}")
+            # Подключаем сигнал отмены от диалога к воркеру
+            self.progress_dialog.cancel_requested.connect(self.upload_worker.cancel)
             
-            # Скрываем прогресс
-            self.hide_progress()
+            # Запускаем воркер
+            self.upload_worker.start()
             
-            # Обрабатываем результат
-            if result['success']:
-                debug_logger.success("🎉 Загрузка релизов завершена успешно!")
-                
-                # Показываем успешный статус
-                self.show_status('success', result['message'])
-                
-                # Показываем диалог с результатом
-                from PyQt6.QtWidgets import QMessageBox
-                QMessageBox.information(
-                    self,
-                    "Загрузка завершена",
-                    f"✅ {result['message']}\n\nВсе релизы успешно загружены на платформу!"
-                )
-                
-            else:
-                debug_logger.error(f"❌ Ошибка загрузки: {result['message']}")
-                
-                # Показываем статус ошибки
-                self.show_status('error', f"Ошибка: {result['message']}")
-                
-                # Показываем диалог с ошибкой
-                from PyQt6.QtWidgets import QMessageBox
-                QMessageBox.critical(
-                    self,
-                    "Ошибка загрузки",
-                    f"❌ {result['message']}\n\nПроверьте настройки и попробуйте снова."
-                )
-                
+            # Показываем диалог прогресса
+            self.progress_dialog.show()
+            
+            debug_logger.info("🔄 Асинхронная загрузка запущена")
+            
         except Exception as e:
-            debug_logger.critical(f"💥 Критическая ошибка при загрузке: {str(e)}")
-            
-            # Скрываем прогресс
-            self.hide_progress()
-            
-            # Показываем статус критической ошибки
-            self.show_status('error', f"Критическая ошибка: {str(e)}")
+            debug_logger.critical(f"💥 Критическая ошибка при запуске загрузки: {str(e)}")
             
             # Показываем диалог с критической ошибкой
             from PyQt6.QtWidgets import QMessageBox
@@ -1202,6 +1177,26 @@ class UploadPage(BasePage):
                 "Критическая ошибка",
                 f"💥 Произошла критическая ошибка:\n{str(e)}\n\nОбратитесь к разработчику."
             )
+    
+    def on_upload_finished(self, success: bool, message: str):
+        """Обработка завершения загрузки"""
+        debug_logger.info(f"🏁 Загрузка завершена: success={success}, message={message}")
+        
+        # Обновляем диалог прогресса
+        self.progress_dialog.on_finished(success, message)
+        
+        # Обрабатываем результат в основном UI
+        if success:
+            debug_logger.success("🎉 Загрузка релизов завершена успешно!")
+            self.show_status('success', message)
+        else:
+            debug_logger.error(f"❌ Ошибка загрузки: {message}")
+            self.show_status('error', f"Ошибка: {message}")
+            
+        # Очищаем ссылки на воркер
+        if hasattr(self, 'upload_worker'):
+            self.upload_worker.deleteLater()
+            delattr(self, 'upload_worker')
     
     def continue_upload(self):
         """Продолжение загрузки файлов"""

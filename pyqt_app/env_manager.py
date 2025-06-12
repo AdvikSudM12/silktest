@@ -38,9 +38,9 @@ class EnvManager:
         
         # Базовая структура .env файла (статичные настройки)
         self.base_env_structure = {
-            "EMD_API": "https://api.emd.cloud",
+            "EMD_API": "https://api.emd.one/api",
             "EMD_SPACE": "silk",
-            "EMD_HEADER_TOKEN": "Authorization",
+            "EMD_HEADER_TOKEN": "token",
             "EMD_TOKEN": "",  # Будет заполняться из templates
             "EMD_USER_ID": "",  # Будет заполняться из templates
             "DAYS_GONE_FOR_START_SITES": "14"

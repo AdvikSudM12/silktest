@@ -440,14 +440,47 @@ class ScriptManager:
             debug_logger.debug(f"💻 Команда: {' '.join(cmd)}")
             debug_logger.debug(f"📁 Рабочая директория: {script_path}")
             
-            # Запускаем процесс
+            # Подготавливаем переменные окружения
+            env = os.environ.copy()  # Копируем текущие переменные окружения
+            
+            # Загружаем переменные из .env файла
+            env_file = os.path.join(self.root_dir, '.env')
+            if os.path.exists(env_file):
+                debug_logger.info("📄 Загружаем переменные из .env файла")
+                try:
+                    with open(env_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith('#') and '=' in line:
+                                key, value = line.split('=', 1)
+                                env[key.strip()] = value.strip()
+                                debug_logger.debug(f"🔧 Переменная: {key.strip()}={'***' if 'TOKEN' in key else value.strip()}")
+                    debug_logger.success("✅ Переменные окружения загружены из .env")
+                    
+                    # Проверяем ключевые переменные
+                    key_vars = ['EMD_API', 'EMD_SPACE', 'EMD_TOKEN', 'EMD_USER_ID']
+                    debug_logger.info("🔍 Проверка ключевых переменных:")
+                    for var in key_vars:
+                        if var in env:
+                            display_value = '***скрыто***' if 'TOKEN' in var else env[var]
+                            debug_logger.success(f"✅ {var}: {display_value}")
+                        else:
+                            debug_logger.error(f"❌ {var}: отсутствует")
+                            
+                except Exception as e:
+                    debug_logger.error(f"❌ Ошибка загрузки .env: {e}")
+            else:
+                debug_logger.warning("⚠️ Файл .env не найден")
+            
+            # Запускаем процесс с переменными окружения
             process = subprocess.Popen(
                 cmd,
                 cwd=script_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                encoding='utf-8'
+                encoding='utf-8',
+                env=env  # Передаем переменные окружения
             )
             
             debug_logger.info("⏳ Ожидание завершения загрузки...")
