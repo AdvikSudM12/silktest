@@ -539,7 +539,8 @@ class SettingsPage(BasePage):
         
         # Автоматически обновляем .env файл при сохранении нового шаблона
         debug_logger.info(f"💾 Сохранение нового шаблона: {template_name}")
-        env_manager.update_env_from_template(template_name)
+        # Используем новую логику: сохраняем данные шаблона в config.json
+        env_manager.save_last_selected_template(template_name)
         
         # Показываем сообщение об успешном сохранении
         from PyQt6.QtWidgets import QMessageBox
@@ -575,12 +576,22 @@ class SettingsPage(BasePage):
         
         config_path = os.path.join(data_dir, "config.json")
         
+        # Загружаем текущий config для сохранения last_selected_template
+        config = {}
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+            except:
+                config = {}
+        
         # Создаем или обновляем конфигурационный файл
-        config = {
+        config.update({
             "user_id": user_id,
             "jwt": jwt,
             "last_updated": datetime.now().isoformat()
-        }
+            # last_selected_template остается прежним если был
+        })
         
         try:
             with open(config_path, "w", encoding="utf-8") as f:
@@ -811,12 +822,22 @@ class SettingsDialog(QDialog):
         
         config_path = os.path.join(data_dir, "config.json")
         
+        # Загружаем текущий config для сохранения last_selected_template
+        config = {}
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+            except:
+                config = {}
+        
         # Создаем или обновляем конфигурационный файл
-        config = {
+        config.update({
             "user_id": user_id,
             "jwt": jwt,
             "last_updated": datetime.now().isoformat()
-        }
+            # last_selected_template остается прежним если был
+        })
         
         try:
             with open(config_path, "w", encoding="utf-8") as f:

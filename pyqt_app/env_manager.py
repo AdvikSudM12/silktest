@@ -167,7 +167,8 @@ DAYS_GONE_FOR_START_SITES={self.base_env_structure['DAYS_GONE_FOR_START_SITES']}
     
     def save_last_selected_template(self, template_name: str) -> bool:
         """
-        Сохраняет последний выбранный шаблон в config.json
+        Сохраняет данные выбранного шаблона в config.json
+        КОПИРУЕТ user_id и jwt из templates.json в config.json
         
         Args:
             template_name: Имя выбранного шаблона
@@ -176,12 +177,26 @@ DAYS_GONE_FOR_START_SITES={self.base_env_structure['DAYS_GONE_FOR_START_SITES']}
             True если успешно сохранен
         """
         try:
-            debug_logger.info(f"💾 Сохраняем последний выбранный шаблон: {template_name}")
+            debug_logger.info(f"💾 Сохраняем данные шаблона '{template_name}' в config.json")
+            
+            # Загружаем данные шаблона из templates.json
+            templates = self.load_templates()
+            if template_name not in templates:
+                debug_logger.error(f"❌ Шаблон '{template_name}' не найден")
+                return False
+            
+            template_data = templates[template_name]
+            user_id = template_data.get('user_id', '')
+            jwt_token = template_data.get('jwt', '')
+            
+            debug_logger.info(f"📊 Копируем данные: user_id={user_id}")
             
             # Загружаем текущую конфигурацию
             config = self.load_current_config()
             
-            # Обновляем поле last_selected_template
+            # Обновляем ВСЕ поля в config.json
+            config['user_id'] = user_id                    # НОВОЕ: копируем данные
+            config['jwt'] = jwt_token                      # НОВОЕ: копируем данные  
             config['last_selected_template'] = template_name
             config['last_updated'] = datetime.now().isoformat()
             
@@ -189,11 +204,11 @@ DAYS_GONE_FOR_START_SITES={self.base_env_structure['DAYS_GONE_FOR_START_SITES']}
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=4)
             
-            debug_logger.success("✅ Последний выбранный шаблон сохранен")
+            debug_logger.success("✅ Данные шаблона сохранены в config.json")
             return True
             
         except Exception as e:
-            debug_logger.error(f"❌ Ошибка сохранения последнего шаблона: {e}")
+            debug_logger.error(f"❌ Ошибка сохранения данных шаблона: {e}")
             return False
     
     def get_last_selected_template(self) -> Optional[str]:
@@ -211,38 +226,50 @@ DAYS_GONE_FOR_START_SITES={self.base_env_structure['DAYS_GONE_FOR_START_SITES']}
     
     def initialize_env_with_last_template(self) -> bool:
         """
-        Инициализирует .env файл с последним выбранным шаблоном
+        Инициализирует .env файл с данными из config.json
+        ВСЕГДА использует данные из config.json (новая логика)
         
         Returns:
             True если успешно инициализирован
         """
-        debug_logger.info("🚀 Инициализация .env с последним шаблоном")
+        debug_logger.info("🚀 Инициализация .env файла из config.json")
         
-        last_template = self.get_last_selected_template()
+        config = self.load_current_config()
         
-        if last_template:
-            # Проверяем, существует ли этот шаблон
-            templates = self.load_templates()
-            if last_template in templates:
-                debug_logger.info(f"📊 Загружаем последний шаблон: {last_template}")
-                return self.update_env_from_template(last_template)
-            else:
-                debug_logger.warning(f"⚠️ Последний шаблон '{last_template}' не найден")
+        if not config:
+            debug_logger.warning("⚠️ config.json не найден, создаем пустой .env")
+            return self.create_env_file()
         
-        # Если последнего шаблона нет, используем текущую конфигурацию
-        return self.update_env_from_current_config()
+        user_id = config.get('user_id', '')
+        jwt_token = config.get('jwt', '')
+        last_template = config.get('last_selected_template', '')
+        
+        debug_logger.info(f"📊 Загружаем из config.json: user_id={user_id}, шаблон={last_template}")
+        
+        return self.create_env_file(user_id, jwt_token)
     
     def initialize_env_on_startup(self) -> bool:
         """
         Инициализирует .env файл при запуске приложения
-        Загружает токены из текущей конфигурации
+        ВСЕГДА использует данные из config.json
         
         Returns:
             True если успешно инициализирован
         """
         debug_logger.info("🚀 Инициализация .env файла при запуске")
         
-        return self.update_env_from_current_config()
+        config = self.load_current_config()
+        
+        if not config:
+            debug_logger.warning("⚠️ config.json не найден, создаем пустой .env")
+            return self.create_env_file()
+        
+        user_id = config.get('user_id', '')
+        jwt_token = config.get('jwt', '')
+        
+        debug_logger.info(f"📊 Загружаем из config.json: user_id={user_id}")
+        
+        return self.create_env_file(user_id, jwt_token)
     
     def get_available_templates(self) -> list:
         """

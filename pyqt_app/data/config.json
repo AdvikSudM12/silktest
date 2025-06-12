@@ -1,6 +1,6 @@
 {
-    "user_id": "",
-    "jwt": "",
+    "user_id": "user123456",
+    "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "last_selected_template": "example_user_1",
-    "last_updated": "2025-06-12T05:06:55.431783"
+    "last_updated": "2025-06-13T00:12:31.178853"
 }

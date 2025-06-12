@@ -89,10 +89,10 @@ class MainWindow(QMainWindow):
         """Инициализация .env файла при запуске приложения"""
         try:
             debug_logger.info("🔧 Инициализация .env файла при запуске")
-            success = env_manager.initialize_env_with_last_template()
+            success = env_manager.initialize_env_on_startup()
             
             if success:
-                debug_logger.success("✅ Файл .env успешно инициализирован с последним шаблоном")
+                debug_logger.success("✅ Файл .env успешно инициализирован из config.json")
             else:
                 debug_logger.warning("⚠️ Не удалось инициализировать .env файл")
                 

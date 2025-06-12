@@ -4,5 +4,9 @@
         "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
         "description": "Пример пользователя 1",
         "created_date": "2024-01-01"
+    },
+    "кукгерушкешукешгукне": {
+        "user_id": "кукгерушкешукешгукне",
+        "jwt": "авыаываываывп"
     }
 }
