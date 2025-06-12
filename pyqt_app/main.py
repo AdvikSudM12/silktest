@@ -12,6 +12,9 @@ from pyqt_app.pages import UploadPage, AnalyticsPage, HelpPage, SettingsPage
 # Импорт сессионного менеджера для очистки при закрытии
 from pyqt_app.session_data_manager import session_manager
 
+# Импорт менеджера .env файлов для автообновления токенов
+from pyqt_app.env_manager import env_manager
+
 # DEBUG: импорт логгера для системы отладки - нужно будет удалить позже
 from pyqt_app.logger_config import get_logger
 debug_logger = get_logger("main_window")
@@ -48,6 +51,9 @@ class MainWindow(QMainWindow):
           # Создаем страницы для вкладок
         self.setup_pages()
         
+        # Инициализируем .env файл при запуске приложения
+        self.initialize_env()
+        
         # Устанавливаем активную вкладку ЗАГРУЗКА (индекс 0)
         self.tab_bar.set_active_tab(0)
     
@@ -79,6 +85,20 @@ class MainWindow(QMainWindow):
         # Переключаем содержимое вкладки
         self.content_stack.setCurrentIndex(index)
         
+    def initialize_env(self):
+        """Инициализация .env файла при запуске приложения"""
+        try:
+            debug_logger.info("🔧 Инициализация .env файла при запуске")
+            success = env_manager.initialize_env_with_last_template()
+            
+            if success:
+                debug_logger.success("✅ Файл .env успешно инициализирован с последним шаблоном")
+            else:
+                debug_logger.warning("⚠️ Не удалось инициализировать .env файл")
+                
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка инициализации .env: {e}")
+    
     def connect_scripts(self):
         """Метод для интеграции существующих скриптов проекта"""
         pass

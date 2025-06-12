@@ -17,6 +17,9 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QPixmap
 import json
 
+# Импорт менеджера .env файлов для автообновления токенов
+from ..env_manager import env_manager
+
 # DEBUG: импорт логгера для системы отладки - нужно будет удалить позже
 from ..logger_config import get_logger
 debug_logger = get_logger("settings_page")
@@ -376,6 +379,57 @@ class SettingsPage(BasePage):
         
         # Подключаем обработчик изменения выбора
         self.template_combo.currentIndexChanged.connect(self.template_changed)
+        
+        # Загружаем последний выбранный шаблон при инициализации
+        self.load_last_selected_template()
+    
+    def load_last_selected_template(self):
+        """Загружает и устанавливает последний выбранный шаблон"""
+        try:
+            debug_logger.info("🔄 Загружаем последний выбранный шаблон")
+            
+            last_template = env_manager.get_last_selected_template()
+            
+            if last_template:
+                # Находим индекс шаблона в комбобоксе
+                template_index = self.template_combo.findText(last_template)
+                
+                if template_index >= 0:
+                    debug_logger.info(f"📊 Устанавливаем последний шаблон: {last_template}")
+                    # Временно отключаем сигналы, чтобы избежать рекурсии
+                    self.template_combo.blockSignals(True)
+                    self.template_combo.setCurrentIndex(template_index)
+                    self.template_combo.blockSignals(False)
+                    
+                    # Загружаем данные шаблона вручную
+                    self.load_template_data(last_template)
+                else:
+                    debug_logger.warning(f"⚠️ Последний шаблон '{last_template}' не найден в списке")
+            else:
+                debug_logger.info("📊 Последний шаблон не найден, остается значение по умолчанию")
+                
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка загрузки последнего шаблона: {e}")
+    
+    def load_template_data(self, template_name: str):
+        """Загружает данные указанного шаблона в поля ввода"""
+        try:
+            import json
+            import os
+            
+            templates_path = os.path.join(os.path.dirname(__file__), "..", "data", "templates.json")
+            
+            if os.path.exists(templates_path):
+                with open(templates_path, "r", encoding="utf-8") as f:
+                    templates = json.load(f)
+                    if template_name in templates:
+                        template_data = templates[template_name]
+                        self.user_id_input.setText(template_data.get("user_id", ""))
+                        self.jwt_input.setText(template_data.get("jwt", ""))
+                        debug_logger.debug(f"📊 Данные шаблона '{template_name}' загружены")
+                        
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка загрузки данных шаблона '{template_name}': {e}")
     
     def template_changed(self, index):
         """Обработчик изменения выбора шаблона"""
@@ -384,21 +438,20 @@ class SettingsPage(BasePage):
             self.user_id_input.clear()
             self.jwt_input.clear()
         else:
-            # Загрузка данных шаблона из JSON файла
-            import json
-            import os
-            
+            # Загрузка данных шаблона
             template_name = self.template_combo.currentText()
-            templates_path = os.path.join(os.path.dirname(__file__), "..", "data", "templates.json")
             
             try:
-                if os.path.exists(templates_path):
-                    with open(templates_path, "r", encoding="utf-8") as f:
-                        templates = json.load(f)
-                        if template_name in templates:
-                            template_data = templates[template_name]
-                            self.user_id_input.setText(template_data.get("user_id", ""))
-                            self.jwt_input.setText(template_data.get("jwt", ""))
+                # Загружаем данные шаблона
+                self.load_template_data(template_name)
+                
+                # Автоматически обновляем .env файл при выборе шаблона
+                debug_logger.info(f"🔄 Обновление .env для шаблона: {template_name}")
+                env_manager.update_env_from_template(template_name)
+                
+                # Сохраняем как последний выбранный шаблон
+                env_manager.save_last_selected_template(template_name)
+                
             except Exception as e:
                 debug_logger.error(f"❌ Ошибка при загрузке данных шаблона: {e}")
                 from PyQt6.QtWidgets import QMessageBox
@@ -484,12 +537,16 @@ class SettingsPage(BasePage):
             )
             return
         
+        # Автоматически обновляем .env файл при сохранении нового шаблона
+        debug_logger.info(f"💾 Сохранение нового шаблона: {template_name}")
+        env_manager.update_env_from_template(template_name)
+        
         # Показываем сообщение об успешном сохранении
         from PyQt6.QtWidgets import QMessageBox
         QMessageBox.information(
             self,
             "Сохранение шаблона",
-            f"Шаблон '{template_name}' успешно сохранен."
+            f"Шаблон '{template_name}' успешно сохранен и .env файл обновлен."
         )
     
     def save_settings(self):
@@ -529,12 +586,16 @@ class SettingsPage(BasePage):
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, ensure_ascii=False, indent=4)
                 
+            # Автоматически обновляем .env файл при сохранении настроек
+            debug_logger.info("💾 Сохранение настроек и обновление .env")
+            env_manager.update_env_from_current_config()
+            
             # Показываем сообщение об успешном сохранении
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.information(
                 self,
                 "Сохранение настроек",
-                "Настройки успешно сохранены."
+                "Настройки успешно сохранены и .env файл обновлен."
             )
             
         except Exception as e:
