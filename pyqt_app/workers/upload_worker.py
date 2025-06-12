@@ -99,7 +99,7 @@ class UploadWorker(QThread):
             # Подготовка к запуску скрипта
             script_path = os.path.join(
                 self.script_manager.root_dir, 
-                'src', 'apps', 'test', 'release-parser-5_test'
+                'src', 'apps', 'test', 'release-parser-5'
             )
             
             # Проверяем существование скрипта

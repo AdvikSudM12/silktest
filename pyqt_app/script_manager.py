@@ -373,7 +373,7 @@ class ScriptManager:
 
     def run_release_upload(self) -> Dict[str, Any]:
         """
-        Запускает загрузку релизов через TypeScript скрипт release-parser-5_test
+        Запускает загрузку релизов через TypeScript скрипт release-parser-5
         
         Returns:
             Результат загрузки релизов
@@ -384,8 +384,8 @@ class ScriptManager:
         debug_logger.info("🔧 Запуск без проверки зависимостей (используем npx)")
         
         try:
-            # Путь к тестовому скрипту загрузки
-            script_path = os.path.join(self.root_dir, 'src', 'apps', 'test', 'release-parser-5_test')
+            # Путь к скрипту загрузки
+            script_path = os.path.join(self.root_dir, 'src', 'apps', 'test', 'release-parser-5')
             debug_logger.debug(f"📂 Путь к скрипту: {script_path}")
             
             # Проверяем существование скрипта
