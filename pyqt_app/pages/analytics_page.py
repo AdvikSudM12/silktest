@@ -123,10 +123,6 @@ class AnalyticsPage(BasePage):
             font-size: 48px;
             font-weight: bold;
             color: #6352EC;
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #6352EC, stop:1 #8B7FFF);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
             margin: 20px 0;
         """)
         scroll_content_layout.addWidget(title_label)
