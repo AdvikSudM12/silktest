@@ -19,8 +19,8 @@ debug_logger = get_logger("upload_page")
 from ..session_data_manager import session_manager
 
 # Импорты для асинхронной загрузки
-from ..workers import UploadWorker
-from ..dialogs import UploadProgressDialog
+from ..workers import UploadWorker, UpdateStatusWorker
+from ..dialogs import UploadProgressDialog, UpdateStatusProgressDialog
 
 class ContainerWithShadow(QFrame):
     """Кастомный виджет-контейнер с эффектом тени"""
@@ -512,9 +512,33 @@ class UploadPage(BasePage):
         continue_button.setCursor(Qt.CursorShape.PointingHandCursor)
         continue_button.clicked.connect(self.continue_upload)
         
+        # Кнопка обновления статусов релизов
+        update_status_button = QPushButton("ОБНОВИТЬ СТАТУСЫ")
+        update_status_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border-radius: 15px;
+                padding: 15px 25px;
+                font-weight: bold;
+                border: 1px solid #F57C00;
+                border-right: 4px solid #E65100;
+                border-bottom: 4px solid #E65100;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+            QPushButton:pressed {
+                background-color: #E65100;
+            }
+        """)
+        update_status_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        update_status_button.clicked.connect(self.update_releases_statuses)
+        
         # Добавляем кнопки в контейнер
         action_buttons_layout.addWidget(upload_button)
         action_buttons_layout.addWidget(continue_button)
+        action_buttons_layout.addWidget(update_status_button)
         
         container_layout.addWidget(action_buttons_container)
         
@@ -1325,3 +1349,70 @@ class UploadPage(BasePage):
                 "Не удалось открыть файл",
                 f"Файл сохранен, но не удалось его открыть:\n{str(e)}\n\nПуть к файлу: {file_path}"
             )
+    
+    def update_releases_statuses(self):
+        """Асинхронное обновление статусов релизов через TypeScript скрипт"""
+        debug_logger.info("🔄 Начинаем асинхронное обновление статусов релизов")
+        
+        try:
+            # Импортируем ScriptManager
+            from pyqt_app.script_manager import ScriptManager
+            
+            # Создаем экземпляр менеджера скриптов
+            script_manager = ScriptManager()
+            debug_logger.info("📦 ScriptManager инициализирован для обновления статусов")
+            
+            # Создаем и настраиваем воркер
+            self.update_status_worker = UpdateStatusWorker(script_manager)
+            
+            # Создаем и показываем диалог прогресса
+            self.update_status_progress_dialog = UpdateStatusProgressDialog(self)
+            
+            # Подключаем сигналы воркера к диалогу
+            self.update_status_worker.progress_updated.connect(self.update_status_progress_dialog.update_progress)
+            self.update_status_worker.progress_percent.connect(self.update_status_progress_dialog.update_progress_percent)
+            self.update_status_worker.stage_changed.connect(self.update_status_progress_dialog.update_stage)
+            self.update_status_worker.finished.connect(self.on_update_status_finished)
+            self.update_status_worker.error_occurred.connect(self.update_status_progress_dialog.on_error)
+            
+            # Подключаем сигнал отмены от диалога к воркеру
+            self.update_status_progress_dialog.cancel_requested.connect(self.update_status_worker.cancel)
+            
+            # Запускаем воркер
+            self.update_status_worker.start()
+            
+            # Показываем диалог прогресса
+            self.update_status_progress_dialog.show()
+            
+            debug_logger.info("🔄 Асинхронное обновление статусов запущено")
+            
+        except Exception as e:
+            debug_logger.critical(f"💥 Критическая ошибка при запуске обновления статусов: {str(e)}")
+            
+            # Показываем диалог с критической ошибкой
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Критическая ошибка",
+                f"💥 Произошла критическая ошибка:\n{str(e)}\n\nОбратитесь к разработчику."
+            )
+    
+    def on_update_status_finished(self, success: bool, message: str):
+        """Обработка завершения обновления статусов"""
+        debug_logger.info(f"🏁 Обновление статусов завершено: success={success}, message={message}")
+        
+        # Обновляем диалог прогресса
+        self.update_status_progress_dialog.on_finished(success, message)
+        
+        # Обрабатываем результат в основном UI
+        if success:
+            debug_logger.success("🎉 Обновление статусов релизов завершено успешно!")
+            self.show_status('success', message)
+        else:
+            debug_logger.error(f"❌ Ошибка обновления статусов: {message}")
+            self.show_status('error', f"Ошибка: {message}")
+            
+        # Очищаем ссылки на воркер
+        if hasattr(self, 'update_status_worker'):
+            self.update_status_worker.deleteLater()
+            delattr(self, 'update_status_worker')

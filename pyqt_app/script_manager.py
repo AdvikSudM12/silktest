@@ -520,6 +520,144 @@ class ScriptManager:
                 'stage': 'critical_error'
             }
 
+    def run_update_releases_statuses(self) -> Dict[str, Any]:
+        """
+        Запускает обновление статусов релизов через TypeScript скрипт update-releases-shipment-statuses
+        
+        Returns:
+            Результат обновления статусов релизов
+        """
+        debug_logger.info("🔄 Запуск обновления статусов релизов")
+        
+        # Пропускаем проверку зависимостей - скрипт работает через npx
+        debug_logger.info("🔧 Запуск без проверки зависимостей (используем npx)")
+        
+        try:
+            # Путь к скрипту обновления статусов
+            script_path = os.path.join(self.root_dir, 'src', 'apps', 'update-releases-shipment-statuses')
+            debug_logger.debug(f"📂 Путь к скрипту: {script_path}")
+            
+            # Проверяем существование скрипта
+            index_file = os.path.join(script_path, 'index.ts')
+            if not os.path.exists(index_file):
+                debug_logger.error(f"❌ Файл скрипта не найден: {index_file}")
+                return {
+                    'success': False,
+                    'message': f"Скрипт обновления статусов не найден: {index_file}"
+                }
+            
+            debug_logger.success("✅ Скрипт обновления статусов найден")
+            
+            # Проверяем наличие .env файла с токенами
+            env_file = os.path.join(self.root_dir, '.env')
+            if not os.path.exists(env_file):
+                debug_logger.error("❌ Файл .env не найден")
+                return {
+                    'success': False,
+                    'message': "Файл .env с токенами не найден. Настройте токены в разделе НАСТРОЙКИ."
+                }
+            
+            debug_logger.success("✅ Файл .env найден")
+            
+            # Запускаем TypeScript скрипт через Node.js
+            import subprocess
+            
+            debug_logger.info("🔧 Запуск TypeScript скрипта через Node.js")
+            
+            # Команда для запуска скрипта с полным путем для Windows
+            import shutil
+            npx_path = shutil.which('npx')
+            if npx_path:
+                cmd = [npx_path, 'ts-node', 'index.ts']
+                debug_logger.debug(f"🔍 Найден npx: {npx_path}")
+            else:
+                # Fallback: пробуем через cmd
+                cmd = ['cmd', '/c', 'npx', 'ts-node', 'index.ts']
+                debug_logger.warning("⚠️ npx не найден, используем cmd /c")
+            
+            debug_logger.debug(f"💻 Команда: {' '.join(cmd)}")
+            debug_logger.debug(f"📁 Рабочая директория: {script_path}")
+            
+            # Подготавливаем переменные окружения
+            env = os.environ.copy()  # Копируем текущие переменные окружения
+            
+            # Загружаем переменные из .env файла
+            env_file = os.path.join(self.root_dir, '.env')
+            if os.path.exists(env_file):
+                debug_logger.info("📄 Загружаем переменные из .env файла")
+                try:
+                    with open(env_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith('#') and '=' in line:
+                                key, value = line.split('=', 1)
+                                env[key.strip()] = value.strip()
+                                debug_logger.debug(f"🔧 Переменная: {key.strip()}={'***' if 'TOKEN' in key else value.strip()}")
+                    debug_logger.success("✅ Переменные окружения загружены из .env")
+                    
+                    # Проверяем ключевые переменные
+                    key_vars = ['EMD_API', 'EMD_SPACE', 'EMD_TOKEN', 'EMD_USER_ID']
+                    debug_logger.info("🔍 Проверка ключевых переменных:")
+                    for var in key_vars:
+                        if var in env:
+                            display_value = '***скрыто***' if 'TOKEN' in var else env[var]
+                            debug_logger.success(f"✅ {var}: {display_value}")
+                        else:
+                            debug_logger.error(f"❌ {var}: отсутствует")
+                            
+                except Exception as e:
+                    debug_logger.error(f"❌ Ошибка загрузки .env: {e}")
+            else:
+                debug_logger.warning("⚠️ Файл .env не найден")
+            
+            # Запускаем процесс с переменными окружения
+            process = subprocess.Popen(
+                cmd,
+                cwd=script_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding='utf-8',
+                env=env  # Передаем переменные окружения
+            )
+            
+            debug_logger.info("⏳ Ожидание завершения обновления статусов...")
+            
+            # Ждем завершения процесса
+            stdout, stderr = process.communicate()
+            
+            debug_logger.debug(f"📤 STDOUT: {stdout}")
+            if stderr:
+                debug_logger.warning(f"⚠️ STDERR: {stderr}")
+            
+            # Проверяем код возврата
+            if process.returncode == 0:
+                debug_logger.success("🎉 Обновление статусов релизов завершено успешно!")
+                return {
+                    'success': True,
+                    'message': "Статусы релизов успешно обновлены",
+                    'output': stdout,
+                    'stage': 'update_completed'
+                }
+            else:
+                debug_logger.error(f"❌ Ошибка обновления статусов, код возврата: {process.returncode}")
+                return {
+                    'success': False,
+                    'message': f"Ошибка при обновлении статусов релизов: {stderr or stdout}",
+                    'error_code': process.returncode,
+                    'stage': 'update_failed'
+                }
+                
+        except Exception as e:
+            debug_logger.critical(f"💥 Критическая ошибка при обновлении статусов: {str(e)}")
+            import traceback
+            debug_logger.error(f"🔍 Traceback: {traceback.format_exc()}")
+            return {
+                'success': False,
+                'message': f"Критическая ошибка при обновлении статусов релизов: {str(e)}",
+                'stage': 'critical_error'
+            }
+
 
 # Пример использования
 if __name__ == "__main__":

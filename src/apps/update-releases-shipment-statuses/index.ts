@@ -47,7 +47,7 @@ import apiConfig from 'src/configs/api'
   const iterations = releases.length
 
   // Create backup
-  fs.writeFile('src/apps/update-releases-shipment-statuses/files/backup.json', JSON.stringify(releases), (err) => {
+  fs.writeFile('files/backup.json', JSON.stringify(releases), (err) => {
     if (err) throw err
 
     console.log('Backup is created ✅')
