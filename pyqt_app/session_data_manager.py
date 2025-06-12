@@ -162,21 +162,64 @@ class SessionDataManager:
             debug_logger.error(f"❌ Ошибка при очистке путей: {e}")
             return False
     
+    def clear_results_files(self) -> bool:
+        """
+        Очищает все файлы из папки results при закрытии приложения
+        
+        Returns:
+            True если очистка успешна
+        """
+        try:
+            # Определяем путь к папке results
+            results_dir = Path(__file__).parent.parent / "results"
+            
+            if not results_dir.exists():
+                debug_logger.info("📁 Папка results не существует - нечего очищать")
+                return True
+            
+            debug_logger.info(f"🗑️ Очищаем файлы из папки: {results_dir}")
+            
+            # Подсчитываем файлы для логирования
+            files_to_delete = list(results_dir.glob("*.xlsx"))
+            files_count = len(files_to_delete)
+            
+            if files_count == 0:
+                debug_logger.info("📭 Папка results пуста - нечего удалять")
+                return True
+            
+            # Удаляем все Excel файлы результатов
+            deleted_count = 0
+            for file_path in files_to_delete:
+                try:
+                    file_path.unlink()  # Удаляем файл
+                    deleted_count += 1
+                    debug_logger.debug(f"🗑️ Удален файл: {file_path.name}")
+                except Exception as e:
+                    debug_logger.error(f"❌ Ошибка при удалении {file_path.name}: {e}")
+            
+            debug_logger.success(f"✅ Удалено {deleted_count} из {files_count} файлов results")
+            return deleted_count == files_count
+            
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка при очистке папки results: {e}")
+            return False
+    
     def clear_all_session_data(self) -> bool:
         """
-        Очищает все сессионные данные (аналитика + пути)
+        Очищает все сессионные данные (аналитика + пути + файлы results)
         
         Returns:
             True если очистка успешна
         """
         analytics_cleared = self.clear_session_data()
         paths_cleared = self.clear_session_paths()
+        results_cleared = self.clear_results_files()
         
-        if analytics_cleared and paths_cleared:
-            debug_logger.success("✅ Все сессионные данные успешно очищены")
+        if analytics_cleared and paths_cleared and results_cleared:
+            debug_logger.success("✅ Все сессионные данные и файлы results успешно очищены")
             return True
         else:
-            debug_logger.warning("⚠️ Частичная очистка сессионных данных")
+            debug_logger.warning("⚠️ Частичная очистка сессионных данных и файлов")
             return False
     
     def has_analytics_data(self) -> bool:
