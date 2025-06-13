@@ -1,0 +1,124 @@
+{
+  "timestamp": "2025-06-13T05:12:52.454127",
+  "system": {
+    "os": "Windows",
+    "python_info": {
+      "command": "py",
+      "version": "Python 3.13.3",
+      "pip_version": "pip 25.1.1 from C:\\Users\\romann\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\pip (python 3.13)"
+    },
+    "nodejs_info": {
+      "node_version": "v22.15.0",
+      "npm_version": "10.9.2",
+      "yarn_version": "1.22.22"
+    }
+  },
+  "dependencies": {
+    "python_modules": {
+      "PyQt6": {
+        "status": "ok",
+        "version": "встроенный",
+        "description": "GUI библиотека"
+      },
+      "loguru": {
+        "status": "ok",
+        "version": "0.7.2",
+        "description": "Система логирования"
+      },
+      "pandas": {
+        "status": "ok",
+        "version": "2.3.0",
+        "description": "Обработка данных"
+      },
+      "openpyxl": {
+        "status": "ok",
+        "version": "3.1.5",
+        "description": "Работа с Excel"
+      },
+      "pathlib": {
+        "status": "ok",
+        "version": "встроенный",
+        "description": "Работа с путями (встроенный)"
+      },
+      "json": {
+        "status": "ok",
+        "version": "2.0.9",
+        "description": "JSON обработка (встроенный)"
+      },
+      "os": {
+        "status": "ok",
+        "version": "встроенный",
+        "description": "Системные функции (встроенный)"
+      },
+      "sys": {
+        "status": "ok",
+        "version": "встроенный",
+        "description": "Системная информация (встроенный)"
+      }
+    },
+    "nodejs_packages": {
+      "typescript": {
+        "status": "ok",
+        "version": "5.7.3"
+      },
+      "ts-node": {
+        "status": "ok",
+        "version": "10.9.2"
+      },
+      "axios": {
+        "status": "ok",
+        "version": "1.6.8"
+      },
+      "dotenv": {
+        "status": "ok",
+        "version": "16.4.5"
+      },
+      "ts-node-npx": {
+        "status": "ok"
+      }
+    },
+    "project_files": {
+      "package.json": {
+        "status": "ok",
+        "size": 1582,
+        "description": "Конфигурация Node.js"
+      },
+      "requirements.txt": {
+        "status": "ok",
+        "size": 136,
+        "description": "Python зависимости (основные)"
+      },
+      "scripts/requirements.txt": {
+        "status": "ok",
+        "size": 32,
+        "description": "Python зависимости (скрипты)"
+      },
+      "run_app.py": {
+        "status": "ok",
+        "size": 497,
+        "description": "Запуск PyQt приложения"
+      },
+      "pyqt_app/main.py": {
+        "status": "ok",
+        "size": 6253,
+        "description": "Основной файл приложения"
+      },
+      "src/apps/release-parser-5/index.ts": {
+        "status": "ok",
+        "size": 23217,
+        "description": "TypeScript парсер"
+      },
+      "src/apps/update-releases-shipment-statuses/index.ts": {
+        "status": "ok",
+        "size": 2355,
+        "description": "TypeScript обновление статусов"
+      }
+    }
+  },
+  "summary": {
+    "python_modules_ok": "8/8",
+    "nodejs_packages_ok": "5/5",
+    "project_files_ok": "7/7",
+    "all_ok": true
+  }
+}
