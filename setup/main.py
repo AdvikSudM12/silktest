@@ -35,6 +35,8 @@ def print_header():
     """Печать заголовка"""
     colored_print("=" * 60, Colors.PURPLE)
     colored_print("🎯 SILK PROJECT - УПРАВЛЕНИЕ ЗАВИСИМОСТЯМИ", Colors.BOLD + Colors.PURPLE)
+    colored_print("📱 https://t.me/SafeVibeCode", Colors.YELLOW)
+    colored_print("BY PRIZRAKJJ", Colors.CYAN)
     colored_print("=" * 60, Colors.PURPLE)
     print()
 
