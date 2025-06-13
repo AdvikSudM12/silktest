@@ -1,6 +1,7 @@
 // ** Modules Imports
 require('dotenv').config()
 import fs from 'fs'
+import path from 'path'
 
 // ** Source code Imports
 import {
@@ -46,11 +47,20 @@ import apiConfig from 'src/configs/api'
 
   const iterations = releases.length
 
-  // Create backup
-  fs.writeFile('files/backup.json', JSON.stringify(releases), (err) => {
+  // Create backup (ПОРТАТИВНОЕ РЕШЕНИЕ)
+  const filesDir = path.join(__dirname, 'files')
+  const backupPath = path.join(filesDir, 'backup.json')
+  
+  // Создаем директорию files если её нет
+  if (!fs.existsSync(filesDir)) {
+    fs.mkdirSync(filesDir, { recursive: true })
+    console.log('📁 Создана директория files')
+  }
+  
+  fs.writeFile(backupPath, JSON.stringify(releases), (err) => {
     if (err) throw err
 
-    console.log('Backup is created ✅')
+    console.log(`Backup is created ✅ (${backupPath})`)
   })
 
   // Updating releases

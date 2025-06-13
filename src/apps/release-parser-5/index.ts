@@ -41,6 +41,23 @@ const log = (message: string, type: 'info' | 'success' | 'error' | 'warning' = '
   console.log(`[${timestamp}] ${icons[type]} ${message}`)
 }
 
+// Функция для поиска корня проекта по наличию package.json
+const findProjectRoot = (): string => {
+  let currentDir = __dirname
+  
+  // Ищем корень проекта по наличию package.json
+  while (currentDir !== path.dirname(currentDir)) {
+    if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+      log(`🎯 Найден корень проекта: ${currentDir}`, 'success')
+      return currentDir
+    }
+    currentDir = path.dirname(currentDir)
+  }
+  
+  log('⚠️ Корень проекта не найден, используем __dirname', 'warning')
+  return __dirname // fallback
+}
+
 // Функция для получения путей из paths.json или стандартных путей
 const getPaths = (): PathsConfig => {
   try {
@@ -50,15 +67,18 @@ const getPaths = (): PathsConfig => {
     log(`🔍 Текущая рабочая директория: ${process.cwd()}`, 'info')
     log(`🔍 __dirname: ${__dirname}`, 'info')
     
-    // Попробуем несколько вариантов путей к paths.json
+    // Попробуем несколько вариантов путей к paths.json (ПОРТАТИВНОЕ РЕШЕНИЕ)
+    const projectRoot = findProjectRoot()
     const possiblePaths = [
-      // Из текущей директории скрипта вверх к корню проекта
+      // 1. Через корень проекта (самый надежный способ)
+      path.join(projectRoot, 'pyqt_app', 'data', 'paths.json'),
+      // 2. Из текущей директории скрипта вверх к корню проекта
       path.join(__dirname, '../../../../pyqt_app/data/paths.json'),
-      // Из рабочей директории (если запускаем из silk/)
+      path.join(__dirname, '../../../pyqt_app/data/paths.json'),
+      // 3. Из рабочей директории
+      path.join(process.cwd(), 'pyqt_app/data/paths.json'),
       path.join(process.cwd(), '../pyqt_app/data/paths.json'),
-      // Прямой путь от корня проекта
-      path.resolve('P:/emd/silk/silk/pyqt_app/data/paths.json'),
-      // Относительные пути
+      // 4. Относительные пути как fallback
       '../../../pyqt_app/data/paths.json',
       '../../../../pyqt_app/data/paths.json'
     ]
