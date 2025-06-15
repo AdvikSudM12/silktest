@@ -1,12 +1,12 @@
 {
-  "timestamp": "2025-06-16T01:39:37.580223",
+  "timestamp": "2025-06-16T02:13:37.165300",
   "excel_file_path": "C:/Users/romann/Downloads/relises/releases.xlsx",
   "directory_path": "C:/Users/romann/Downloads/relises",
   "comparison_result": {
     "success": true,
-    "message": "Все файлы соответствуют записям в Excel",
-    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_01-39-34.xlsx",
-    "error_count": 0,
+    "message": "Найдено 1 файлов с различиями",
+    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_02-13-34.xlsx",
+    "error_count": 1,
     "results_data": [
       {
         "Тип файла": "Трек",
@@ -61,16 +61,34 @@
         "Процент сходства": 100.0,
         "Различия": "",
         "Статус": "Точное соответствие"
+      },
+      {
+        "Тип файла": "Трек",
+        "Название в Excel": "AMOS.wav",
+        "Найден в папке": "AMOS11.wav",
+        "Ближайшее совпадение": "AMOS11.wav",
+        "Процент сходства": 80.0,
+        "Различия": "Позиция 5: '.' vs '1'; Позиция 6: 'w' vs '1'; Позиция 7: 'a' vs '.'; Позиция 8: 'v' vs 'w'; Лишние символы во второй строке: 'av'",
+        "Статус": "Частичное соответствие"
+      },
+      {
+        "Тип файла": "Обложка",
+        "Название в Excel": "AMOS.jpg",
+        "Найден в папке": "AMOS.jpg",
+        "Ближайшее совпадение": "AMOS.jpg",
+        "Процент сходства": 100.0,
+        "Различия": "",
+        "Статус": "Точное соответствие"
       }
     ]
   },
   "analytics_summary": {
-    "total_errors": 0,
-    "audio_errors": 3,
-    "cover_errors": 3,
-    "has_errors": false,
-    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_01-39-34.xlsx",
+    "total_errors": 1,
+    "audio_errors": 4,
+    "cover_errors": 4,
+    "has_errors": true,
+    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_02-13-34.xlsx",
     "success": true,
-    "message": "Все файлы соответствуют записям в Excel"
+    "message": "Найдено 1 файлов с различиями"
   }
 }

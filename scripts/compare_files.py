@@ -296,7 +296,13 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
 
     # Обрабатываем каждую строку в Excel
     debug_logger.info("🔄 Обрабатываем файлы из Excel")
+    total_rows = len(df)
+    debug_logger.info(f"📊 Всего строк для обработки: {total_rows}")
+    
     for index, row in df.iterrows():
+        # Логируем прогресс каждые 10 строк
+        if (index + 1) % 10 == 0 or index == 0:
+            debug_logger.debug(f"📈 Обработано строк: {index + 1}/{total_rows}")
         # Проверяем треки
         track_name = row['track (titel)']
         if pd.notna(track_name) and str(track_name).strip():
@@ -346,6 +352,13 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             # Добавляем в errors_only только если есть проблемы
             if track_similarity < 100:
                 errors_only.append(result_entry)
+                # Логируем найденную ошибку
+                if track_similarity == 0:
+                    debug_logger.warning(f"❌ Трек НЕ НАЙДЕН: '{track_name}'")
+                elif track_similarity < 50:
+                    debug_logger.warning(f"🔴 Трек низкое сходство ({track_similarity}%): '{track_name}' → '{closest_track}'")
+                elif track_similarity < 90:
+                    debug_logger.debug(f"🟡 Трек среднее сходство ({track_similarity}%): '{track_name}' → '{closest_track}'")
 
         # Проверяем обложки
         cover_name = row['cover (titel)']
@@ -396,13 +409,29 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             # Добавляем в errors_only только если есть проблемы
             if cover_similarity < 100:
                 errors_only.append(result_entry)
+                # Логируем найденную ошибку
+                if cover_similarity == 0:
+                    debug_logger.warning(f"❌ Обложка НЕ НАЙДЕНА: '{cover_name}'")
+                elif cover_similarity < 50:
+                    debug_logger.warning(f"🔴 Обложка низкое сходство ({cover_similarity}%): '{cover_name}' → '{closest_cover}'")
+                elif cover_similarity < 90:
+                    debug_logger.debug(f"🟡 Обложка среднее сходство ({cover_similarity}%): '{cover_name}' → '{closest_cover}'")
 
     # Находим неиспользованные файлы
+    debug_logger.info("🔍 Ищем неиспользованные файлы в директории")
     unused_files = []
     for file in actual_files:
         normalized_file = normalize_filename(file)
         if normalized_file not in used_files:
             unused_files.append({'Файл в папке': file, 'Статус': 'Не найден в Excel'})
+            debug_logger.debug(f"📁 Неиспользованный файл: '{file}'")
+    
+    debug_logger.info(f"📊 Итоговая статистика обработки:")
+    debug_logger.info(f"   📄 Всего файлов в Excel: {statistics['total_excel_tracks'] + statistics['total_excel_covers']}")
+    debug_logger.info(f"   🎯 Точных совпадений: {statistics['perfect_matches']}")
+    debug_logger.info(f"   🟡 Частичных совпадений: {statistics['partial_matches']}")
+    debug_logger.info(f"   ❌ Не найдено: {statistics['no_matches']}")
+    debug_logger.info(f"   📁 Неиспользованных файлов: {len(unused_files)}")
 
     # Создаем DataFrames
     all_results_df = pd.DataFrame(all_results)
@@ -487,17 +516,17 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     
     executive_summary_df = pd.DataFrame(executive_summary)
     
-    # Читаем токен менеджера из config.json
+    # Читаем JWT токен менеджера из config.json
     manager_token = 'Не найден'
     try:
         config_file = script_dir / 'pyqt_app' / 'data' / 'config.json'
         if os.path.exists(config_file):
             with open(config_file, 'r', encoding='utf-8') as f:
                 config_data = json.load(f)
-                manager_token = config_data.get('user_id', 'Не найден')
-                debug_logger.debug(f"🔑 Загружен токен менеджера: {manager_token}")
+                manager_token = config_data.get('jwt', 'Не найден')
+                debug_logger.debug(f"🔑 Загружен JWT токен менеджера: {manager_token[:50]}..." if len(str(manager_token)) > 50 else f"🔑 Загружен JWT токен менеджера: {manager_token}")
     except Exception as e:
-        debug_logger.warning(f"⚠️ Ошибка при чтении токена менеджера: {str(e)}")
+        debug_logger.warning(f"⚠️ Ошибка при чтении JWT токена менеджера: {str(e)}")
     
     # Создаем детальную статистику
     detailed_stats = [
@@ -521,7 +550,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
         ['Неиспользованные файлы', len(unused_files), 
          f"{(len(unused_files)/statistics['total_actual_files']*100):.1f}%" if statistics['total_actual_files'] > 0 else "0%"],
         ['', '', ''],
-        ['Токен менеджера', manager_token, '']
+        ['JWT токен менеджера', manager_token, '']
     ]
     
     detailed_stats_df = pd.DataFrame(detailed_stats)
@@ -617,6 +646,27 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
         
         if result.get('error_count', 0) > 0:
             debug_logger.warning(f"⚠️ Найдено ошибок: {result['error_count']}")
+            
+            # Выводим детальную информацию о файлах с ошибками
+            debug_logger.info("📝 Детали файлов с ошибками:")
+            for i, error in enumerate(errors_only[:10], 1):  # Показываем первые 10 ошибок
+                file_name = error.get('Название в Excel', 'Неизвестно')
+                file_type = error.get('Тип файла', 'Неизвестно')
+                similarity = error.get('Процент сходства', 0)
+                found_file = error.get('Найден в папке', 'Не найден')
+                
+                if similarity == 0:
+                    debug_logger.error(f"   {i}. ❌ {file_type}: '{file_name}' - НЕ НАЙДЕН")
+                elif similarity < 50:
+                    debug_logger.warning(f"   {i}. 🔴 {file_type}: '{file_name}' - {similarity}% сходства с '{found_file}'")
+                elif similarity < 80:
+                    debug_logger.info(f"   {i}. 🟡 {file_type}: '{file_name}' - {similarity}% сходства с '{found_file}'")
+                else:
+                    debug_logger.info(f"   {i}. 🟠 {file_type}: '{file_name}' - {similarity}% сходства с '{found_file}'")
+            
+            if len(errors_only) > 10:
+                debug_logger.info(f"   ... и еще {len(errors_only) - 10} файлов с ошибками")
+                
         else:
             debug_logger.success(f"🎉 Ошибок не найдено!")
 
@@ -678,26 +728,84 @@ def _format_excel_sheets(writer, all_results_df, errors_only_df, unused_files_co
     if 'Все файлы' in writer.sheets and len(all_results_df) > 0:
         ws = writer.sheets['Все файлы']
         
+        # Определяем дополнительные цвета для градации
+        perfect_green = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')  # Ярко-зеленый для 100%
+        good_green = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')     # Светло-зеленый для 90-99%
+        orange_fill = PatternFill(start_color='FFA500', end_color='FFA500', fill_type='solid')   # Оранжевый для 80-89%
+        light_orange = PatternFill(start_color='FFD700', end_color='FFD700', fill_type='solid')  # Светло-оранжевый для 50-79%
+        light_red = PatternFill(start_color='FFB6C1', end_color='FFB6C1', fill_type='solid')     # Светло-красный для 1-49%
+        dark_red = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')      # Темно-красный для 0%
+        
         # Заголовки
         for cell in ws[1]:
             cell.fill = header_fill
             cell.font = header_font
         
-        # Выделяем строки цветом в зависимости от статуса
+        # Выделяем строки цветом в зависимости от процента сходства
         for row in range(2, len(all_results_df) + 2):
             try:
                 similarity = ws.cell(row=row, column=5).value  # Колонка с процентом сходства
+                
+                # Определяем цвет в зависимости от процента сходства
                 if similarity == 100:
-                    for col in range(1, 8):
-                        ws.cell(row=row, column=col).fill = green_fill
-                elif similarity < 50:
-                    for col in range(1, 8):
-                        ws.cell(row=row, column=col).fill = red_fill
-                elif similarity < 80:
-                    for col in range(1, 8):
-                        ws.cell(row=row, column=col).fill = yellow_fill
-            except:
+                    # Идеальное совпадение - ярко-зеленый
+                    fill_color = perfect_green
+                elif similarity >= 90:
+                    # Очень хорошее совпадение - светло-зеленый
+                    fill_color = good_green
+                elif similarity >= 80:
+                    # Хорошее совпадение - оранжевый
+                    fill_color = orange_fill
+                elif similarity >= 50:
+                    # Среднее совпадение - светло-оранжевый/золотой
+                    fill_color = light_orange
+                elif similarity > 0:
+                    # Плохое совпадение - светло-красный
+                    fill_color = light_red
+                else:
+                    # Файл не найден - темно-красный
+                    fill_color = dark_red
+                
+                # Применяем цвет ко всей строке
+                for col in range(1, 8):  # 7 колонок в таблице
+                    cell = ws.cell(row=row, column=col)
+                    cell.fill = fill_color
+                    
+                    # Дополнительно выделяем процент сходства жирным шрифтом если < 100%
+                    if col == 5 and similarity < 100:  # Колонка с процентом сходства
+                        cell.font = Font(bold=True)
+                        
+            except Exception as e:
+                debug_logger.debug(f"⚠️ Ошибка форматирования строки {row}: {e}")
                 pass
+        
+        # Добавляем легенду цветов в конце таблицы
+        legend_start_row = len(all_results_df) + 4  # Отступ от основной таблицы
+        
+        # Заголовок легенды
+        legend_header = ws.cell(row=legend_start_row, column=1)
+        legend_header.value = "Легенда цветов (по проценту сходства):"
+        legend_header.font = Font(bold=True, size=12)
+        
+        # Элементы легенды
+        legend_items = [
+            ("100% - Идеальное совпадение", perfect_green),
+            ("90-99% - Очень хорошее совпадение", good_green),
+            ("80-89% - Хорошее совпадение", orange_fill),
+            ("50-79% - Среднее совпадение", light_orange),
+            ("1-49% - Плохое совпадение", light_red),
+            ("0% - Файл не найден", dark_red)
+        ]
+        
+        for i, (text, color) in enumerate(legend_items):
+            row_num = legend_start_row + 1 + i
+            cell = ws.cell(row=row_num, column=1)
+            cell.value = text
+            cell.fill = color
+            cell.font = Font(bold=True)
+            
+            # Объединяем ячейки для лучшего вида легенды
+            ws.merge_cells(f'A{row_num}:C{row_num}')
         
         # Автоширина столбцов
         for column in ws.columns:
@@ -768,11 +876,11 @@ def _format_excel_sheets(writer, all_results_df, errors_only_df, unused_files_co
     if 'Детальная статистика' in writer.sheets:
         ws = writer.sheets['Детальная статистика']
         
-        # Ищем строку с токеном менеджера и форматируем её
+        # Ищем строку с JWT токеном менеджера и форматируем её
         for row_idx, row in enumerate(ws.iter_rows(), 1):
             for col_idx, cell in enumerate(row, 1):
-                if cell.value == 'Токен менеджера':
-                    # Форматируем всю строку с токеном менеджера
+                if cell.value == 'JWT токен менеджера':
+                    # Форматируем всю строку с JWT токеном менеджера
                     for c in range(1, 4):  # 3 колонки в детальной статистике
                         token_cell = ws.cell(row=row_idx, column=c)
                         token_cell.font = Font(bold=True, size=11)
