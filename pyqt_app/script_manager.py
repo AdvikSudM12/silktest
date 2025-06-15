@@ -110,19 +110,52 @@ class ScriptManager:
                 'message': f"Ошибка при выполнении сравнения файлов: {str(e)}"
             }
     
-
+    def run_excel_processing(self, error_file_path: str = None) -> Dict[str, Any]:
+        """
+        Запускает обработку Excel файла с ошибками
+        
+        Args:
+            error_file_path: Путь к файлу с результатами сравнения
+        
+        Returns:
+            Результат обработки Excel файла
+        """
+        # Загружаем модуль excel_operations
+        module = self.load_script('excel_operations.py')
+        if not module:
+            return {
+                'success': False,
+                'message': "Не удалось загрузить модуль excel_operations.py"
+            }
+        
+        # Получаем функцию обработки
+        if not hasattr(module, 'process_excel_errors'):
+            return {
+                'success': False,
+                'message': "Функция process_excel_errors не найдена в модуле"
+            }
+        
+        # Вызываем функцию обработки
+        try:
+            process_function = getattr(module, 'process_excel_errors')
+            return process_function(error_file_path=error_file_path)
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Ошибка при обработке Excel файла: {str(e)}"
+            }
     
     def run_complete_workflow(self) -> Dict[str, Any]:
         """
-        Выполняет полный workflow: сравнение файлов и создание отчета
+        Выполняет полный workflow: сравнение файлов → обработка ошибок
         
         Returns:
             Результат выполнения полного workflow
         """
         debug_logger.info("🚀 Запуск полного workflow")
         
-        # Этап 1: Сравнение файлов и создание отчета
-        debug_logger.info("📋 Сравнение файлов и создание отчета")
+        # Этап 1: Сравнение файлов
+        debug_logger.info("📋 Этап 1: Сравнение файлов")
         comparison_result = self.run_file_comparison()
         debug_logger.debug(f"📊 Результат сравнения: {comparison_result.get('success', False)}")
         
@@ -130,25 +163,47 @@ class ScriptManager:
             debug_logger.error(f"❌ Ошибка сравнения файлов: {comparison_result['message']}")
             return {
                 'success': False,
-                'message': f"Ошибка при сравнении файлов: {comparison_result['message']}",
+                'message': f"Ошибка на этапе сравнения файлов: {comparison_result['message']}",
                 'stage': 'comparison'
             }
         
-        # Workflow завершен успешно
+        # Проверяем, есть ли ошибки для обработки
         error_count = comparison_result.get('error_count', 0)
-        debug_logger.info(f"📈 Найдено файлов с различиями: {error_count}")
+        debug_logger.info(f"📈 Найдено ошибок для обработки: {error_count}")
         
         if error_count == 0:
-            debug_logger.success("🎉 Все файлы соответствуют записям в Excel")
-        else:
-            debug_logger.info(f"📊 Создан детальный отчет с {error_count} различиями")
+            debug_logger.success("🎉 Нет ошибок - workflow завершен успешно")
+            return {
+                'success': True,
+                'message': "Все файлы соответствуют записям в Excel. Обработка ошибок не требуется.",
+                'stage': 'completed',
+                'comparison_result': comparison_result
+            }
         
-        debug_logger.success("🎊 Workflow завершен успешно!")
+        # Этап 2: Обработка ошибок в Excel
+        debug_logger.info("📝 Этап 2: Обработка ошибок в Excel")
+        results_file = comparison_result.get('results_file')
+        debug_logger.debug(f"📄 Файл результатов: {results_file}")
+        
+        excel_result = self.run_excel_processing(results_file)
+        debug_logger.debug(f"📊 Результат обработки Excel: {excel_result.get('success', False)}")
+        
+        if not excel_result['success']:
+            debug_logger.error(f"❌ Ошибка обработки Excel: {excel_result['message']}")
+            return {
+                'success': False,
+                'message': f"Ошибка на этапе обработки Excel: {excel_result['message']}",
+                'stage': 'excel_processing',
+                'comparison_result': comparison_result
+            }
+        
+        debug_logger.success("🎊 Полный workflow завершен успешно!")
         return {
             'success': True,
-            'message': comparison_result['message'],
+            'message': f"Workflow выполнен успешно! {comparison_result['message']} {excel_result['message']}",
             'stage': 'completed',
-            'comparison_result': comparison_result
+            'comparison_result': comparison_result,
+            'excel_result': excel_result
         }
     
     def load_script(self, script_name: str) -> Optional[Any]:
