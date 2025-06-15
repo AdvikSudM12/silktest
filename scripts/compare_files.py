@@ -3,7 +3,8 @@ import os
 from difflib import SequenceMatcher
 from pathlib import Path
 from datetime import datetime
-from openpyxl.styles import PatternFill
+from openpyxl.styles import PatternFill, Font, Alignment
+from openpyxl.utils.dataframe import dataframe_to_rows
 import unicodedata
 import re
 
@@ -257,7 +258,9 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             'message': f"Ошибка при чтении Excel файла: {str(e)}",
             'results_file': None,
             'error_count': 0
-        }# Проверяем наличие необходимых столбцов
+        }
+    
+    # Проверяем наличие необходимых столбцов
     required_columns = ['track (titel)', 'cover (titel)']
     if not all(col in df.columns for col in required_columns):
         return {
@@ -269,80 +272,317 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
 
     # Создаем списки для хранения результатов
     all_results = []
+    errors_only = []
+    statistics = {
+        'total_excel_tracks': 0,
+        'total_excel_covers': 0,
+        'total_actual_files': len(actual_files),
+        'perfect_matches': 0,
+        'partial_matches': 0,
+        'no_matches': 0,
+        'tracks_processed': 0,
+        'covers_processed': 0,
+        'similarity_ranges': {
+            '90-100%': 0,
+            '80-89%': 0,
+            '50-79%': 0,
+            '0-49%': 0
+        }
+    }
+
+    # Создаем множества для отслеживания использованных файлов
+    used_files = set()
+    excel_files = set()
 
     # Обрабатываем каждую строку в Excel
+    debug_logger.info("🔄 Обрабатываем файлы из Excel")
     for index, row in df.iterrows():
         # Проверяем треки
         track_name = row['track (titel)']
         if pd.notna(track_name) and str(track_name).strip():
+            statistics['total_excel_tracks'] += 1
+            statistics['tracks_processed'] += 1
+            normalized_track = normalize_filename(str(track_name))
+            excel_files.add(normalized_track)
+            
             closest_track, track_similarity = find_closest_match(track_name, actual_files)
-            if track_similarity < 100:  # Если есть различия
-                differences = find_char_differences(str(track_name), str(closest_track))
-                all_results.append({
-                    'Тип файла': 'Трек',
-                    'Название в Excel': track_name,
-                    'Найден в папке': closest_track if closest_track else 'Не найден',
-                    'Ближайшее совпадение': closest_track if closest_track else '',
-                    'Процент сходства': round(track_similarity, 2),
-                    'Различия': differences
-                })
+            
+            # Категоризируем по проценту сходства
+            if track_similarity >= 90:
+                statistics['similarity_ranges']['90-100%'] += 1
+                if track_similarity == 100:
+                    statistics['perfect_matches'] += 1
+                else:
+                    statistics['partial_matches'] += 1
+            elif track_similarity >= 80:
+                statistics['similarity_ranges']['80-89%'] += 1
+                statistics['partial_matches'] += 1
+            elif track_similarity >= 50:
+                statistics['similarity_ranges']['50-79%'] += 1
+                statistics['partial_matches'] += 1
+            else:
+                statistics['similarity_ranges']['0-49%'] += 1
+                statistics['no_matches'] += 1
+            
+            if closest_track:
+                used_files.add(normalize_filename(closest_track))
+            
+            differences = find_char_differences(str(track_name), str(closest_track)) if closest_track else 'Файл не найден'
+            
+            result_entry = {
+                'Тип файла': 'Трек',
+                'Название в Excel': track_name,
+                'Найден в папке': closest_track if closest_track else 'Не найден',
+                'Ближайшее совпадение': closest_track if closest_track else '',
+                'Процент сходства': round(track_similarity, 2) if track_similarity > 0 else 0,
+                'Различия': differences,
+                'Статус': 'Точное соответствие' if track_similarity == 100 else 
+                         'Частичное соответствие' if track_similarity >= 50 else 
+                         'Не найден'
+            }
+            
+            all_results.append(result_entry)
+            
+            # Добавляем в errors_only только если есть проблемы
+            if track_similarity < 100:
+                errors_only.append(result_entry)
 
         # Проверяем обложки
         cover_name = row['cover (titel)']
         if pd.notna(cover_name) and str(cover_name).strip():
+            statistics['total_excel_covers'] += 1
+            statistics['covers_processed'] += 1
+            normalized_cover = normalize_filename(str(cover_name))
+            excel_files.add(normalized_cover)
+            
             closest_cover, cover_similarity = find_closest_match(cover_name, actual_files)
-            if cover_similarity < 100:  # Если есть различия
-                differences = find_char_differences(str(cover_name), str(closest_cover))
-                all_results.append({
-                    'Тип файла': 'Обложка',
-                    'Название в Excel': cover_name,
-                    'Найден в папке': closest_cover if closest_cover else 'Не найден',
-                    'Ближайшее совпадение': closest_cover if closest_cover else '',
-                    'Процент сходства': round(cover_similarity, 2),
-                    'Различия': differences
-                })
+            
+            # Категоризируем по проценту сходства
+            if cover_similarity >= 90:
+                statistics['similarity_ranges']['90-100%'] += 1
+                if cover_similarity == 100:
+                    statistics['perfect_matches'] += 1
+                else:
+                    statistics['partial_matches'] += 1
+            elif cover_similarity >= 80:
+                statistics['similarity_ranges']['80-89%'] += 1
+                statistics['partial_matches'] += 1
+            elif cover_similarity >= 50:
+                statistics['similarity_ranges']['50-79%'] += 1
+                statistics['partial_matches'] += 1
+            else:
+                statistics['similarity_ranges']['0-49%'] += 1
+                statistics['no_matches'] += 1
+            
+            if closest_cover:
+                used_files.add(normalize_filename(closest_cover))
+            
+            differences = find_char_differences(str(cover_name), str(closest_cover)) if closest_cover else 'Файл не найден'
+            
+            result_entry = {
+                'Тип файла': 'Обложка',
+                'Название в Excel': cover_name,
+                'Найден в папке': closest_cover if closest_cover else 'Не найден',
+                'Ближайшее совпадение': closest_cover if closest_cover else '',
+                'Процент сходства': round(cover_similarity, 2) if cover_similarity > 0 else 0,
+                'Различия': differences,
+                'Статус': 'Точное соответствие' if cover_similarity == 100 else 
+                         'Частичное соответствие' if cover_similarity >= 50 else 
+                         'Не найден'
+            }
+            
+            all_results.append(result_entry)
+            
+            # Добавляем в errors_only только если есть проблемы
+            if cover_similarity < 100:
+                errors_only.append(result_entry)
 
-    # Создаем DataFrame из результатов
-    results_df = pd.DataFrame(all_results)
+    # Находим неиспользованные файлы
+    unused_files = []
+    for file in actual_files:
+        normalized_file = normalize_filename(file)
+        if normalized_file not in used_files:
+            unused_files.append({'Файл в папке': file, 'Статус': 'Не найден в Excel'})
+
+    # Создаем DataFrames
+    all_results_df = pd.DataFrame(all_results)
+    
+    # Для листа "Только ошибки" - если ошибок нет, добавляем сообщение
+    if len(errors_only) == 0:
+        errors_only_df = pd.DataFrame([['Все файлы из Excel найдены в директории', '', '', '', '', '', '']], 
+                                    columns=['Тип файла', 'Название в Excel', 'Найден в папке', 'Ближайшее совпадение', 'Процент сходства', 'Различия', 'Статус'])
+    else:
+        errors_only_df = pd.DataFrame(errors_only)
+    
+    unused_files_df = pd.DataFrame(unused_files)
+    
+    # Создаем сводную статистику
+    total_files_excel = statistics['total_excel_tracks'] + statistics['total_excel_covers']
+    success_rate = (statistics['perfect_matches'] / total_files_excel * 100) if total_files_excel > 0 else 0
+    
+    # Создаем статистику по релизам
+    release_stats = {}
+    for index, row in df.iterrows():
+        release_name = row.get('release', 'Без указания релиза')
+        if pd.isna(release_name) or str(release_name).strip() == '':
+            release_name = 'Без указания релиза'
+        
+        if release_name not in release_stats:
+            release_stats[release_name] = {
+                'total_files': 0,
+                'found_files': 0,
+                'missing_files': 0
+            }
+        
+        # Подсчитываем треки для релиза
+        track_name = row['track (titel)']
+        if pd.notna(track_name) and str(track_name).strip():
+            release_stats[release_name]['total_files'] += 1
+            closest_track, track_similarity = find_closest_match(track_name, actual_files)
+            if track_similarity >= 50:  # Считаем найденным если сходство >= 50%
+                release_stats[release_name]['found_files'] += 1
+            else:
+                release_stats[release_name]['missing_files'] += 1
+        
+        # Подсчитываем обложки для релиза
+        cover_name = row['cover (titel)']
+        if pd.notna(cover_name) and str(cover_name).strip():
+            release_stats[release_name]['total_files'] += 1  
+            closest_cover, cover_similarity = find_closest_match(cover_name, actual_files)
+            if cover_similarity >= 50:  # Считаем найденным если сходство >= 50%
+                release_stats[release_name]['found_files'] += 1
+            else:
+                release_stats[release_name]['missing_files'] += 1
+    
+    # Формируем краткую сводку согласно образцу
+    executive_summary = [
+        ['Сводка по проверке файлов', ''],
+        ['', ''],
+        ['Общая статистика', ''],
+        ['Всего файлов в Excel:', total_files_excel],
+        ['Найдено совпадений:', statistics['perfect_matches'] + statistics['partial_matches']],
+        ['Отсутствующие файлы:', statistics['no_matches']],
+        ['Неиспользуемые файлы в директории:', len(unused_files)],
+        ['', ''],
+        ['Статистика по типам файлов', ''],
+        ['Найдено треков:', sum(1 for result in all_results if result['Тип файла'] == 'Трек' and result['Процент сходства'] >= 50)],
+        ['Найдено обложек:', sum(1 for result in all_results if result['Тип файла'] == 'Обложка' and result['Процент сходства'] >= 50)],
+        ['Отсутствующие треки:', sum(1 for result in all_results if result['Тип файла'] == 'Трек' and result['Процент сходства'] < 50)],
+        ['Отсутствующие обложки:', sum(1 for result in all_results if result['Тип файла'] == 'Обложка' and result['Процент сходства'] < 50)],
+        ['', ''],
+        ['Статистика по релизам', ''],
+        ['Релиз', 'Всего файлов', 'Найдено', 'Отсутствует', 'Процент найденных']
+    ]
+    
+    # Добавляем статистику по каждому релизу
+    for release_name, stats in sorted(release_stats.items()):
+        percentage = (stats['found_files'] / stats['total_files'] * 100) if stats['total_files'] > 0 else 0
+        executive_summary.append([
+            release_name,
+            stats['total_files'],
+            stats['found_files'], 
+            stats['missing_files'],
+            f"{percentage:.0f}%"
+        ])
+    
+    executive_summary_df = pd.DataFrame(executive_summary)
+    
+    # Создаем детальную статистику
+    detailed_stats = [
+        ['Категория', 'Количество', 'Процент'],
+        ['Треки в Excel', statistics['tracks_processed'], 
+         f"{(statistics['tracks_processed']/total_files_excel*100):.1f}%" if total_files_excel > 0 else "0%"],
+        ['Обложки в Excel', statistics['covers_processed'], 
+         f"{(statistics['covers_processed']/total_files_excel*100):.1f}%" if total_files_excel > 0 else "0%"],
+        ['', '', ''],
+        ['Точные совпадения (100%)', statistics['perfect_matches'], 
+         f"{(statistics['perfect_matches']/total_files_excel*100):.1f}%" if total_files_excel > 0 else "0%"],
+        ['Высокое сходство (90-99%)', statistics['similarity_ranges']['90-100%'] - statistics['perfect_matches'], 
+         f"{((statistics['similarity_ranges']['90-100%'] - statistics['perfect_matches'])/total_files_excel*100):.1f}%" if total_files_excel > 0 else "0%"],
+        ['Среднее сходство (80-89%)', statistics['similarity_ranges']['80-89%'], 
+         f"{(statistics['similarity_ranges']['80-89%']/total_files_excel*100):.1f}%" if total_files_excel > 0 else "0%"],
+        ['Низкое сходство (50-79%)', statistics['similarity_ranges']['50-79%'], 
+         f"{(statistics['similarity_ranges']['50-79%']/total_files_excel*100):.1f}%" if total_files_excel > 0 else "0%"],
+        ['Очень низкое сходство (0-49%)', statistics['similarity_ranges']['0-49%'], 
+         f"{(statistics['similarity_ranges']['0-49%']/total_files_excel*100):.1f}%" if total_files_excel > 0 else "0%"],
+        ['', '', ''],
+        ['Неиспользованные файлы', len(unused_files), 
+         f"{(len(unused_files)/statistics['total_actual_files']*100):.1f}%" if statistics['total_actual_files'] > 0 else "0%"]
+    ]
+    
+    detailed_stats_df = pd.DataFrame(detailed_stats)
+    
+    # Создаем рекомендации
+    recommendations = []
+    if statistics['perfect_matches'] == total_files_excel:
+        recommendations.append(['✅ Отлично!', 'Все файлы найдены с точным соответствием'])
+    else:
+        if statistics['no_matches'] > 0:
+            recommendations.append(['🚨 Критично', f'{statistics["no_matches"]} файлов не найдено - проверьте их наличие'])
+        if statistics['similarity_ranges']['0-49%'] > 0:
+            recommendations.append(['⚠️ Внимание', f'{statistics["similarity_ranges"]["0-49%"]} файлов с очень низким сходством - возможны ошибки в названиях'])
+        if statistics['similarity_ranges']['50-79%'] > 0:
+            recommendations.append(['📝 Рекомендация', f'{statistics["similarity_ranges"]["50-79%"]} файлов требуют проверки названий'])
+        if len(unused_files) > 0:
+            recommendations.append(['📁 Информация', f'{len(unused_files)} файлов в папке не указаны в Excel'])
+        if statistics['partial_matches'] > statistics['perfect_matches']:
+            recommendations.append(['🔧 Улучшение', 'Рекомендуется стандартизировать именование файлов'])
+    
+    if not recommendations:
+        recommendations.append(['✅ Все хорошо', 'Проблем не обнаружено'])
+    
+    recommendations_df = pd.DataFrame(recommendations, columns=['Приоритет', 'Рекомендация'])
     
     # Создаем имя выходного файла с текущей датой и временем
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_file = results_dir / f"file_comparison_results_{timestamp}.xlsx"
     
-    # Сохраняем результаты в новый Excel файл
-    with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-        results_df.to_excel(writer, index=False, sheet_name='Результаты')
-        
-        # Получаем рабочий лист для форматирования
-        worksheet = writer.sheets['Результаты']
-        
-        # Форматирование: выделяем строки с низким процентом сходства
-        red_fill = PatternFill(start_color='FFFF0000', end_color='FFFF0000', fill_type='solid')
-        yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
-        
-        # Автоматическая ширина столбцов
-        for column in worksheet.columns:
-            max_length = 0
-            column = [cell for cell in column]
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
-          # Выделяем строки цветом в зависимости от процента сходства
-        for row in range(2, len(all_results) + 2):  # +2 because Excel is 1-based and we have header
-            similarity = worksheet.cell(row=row, column=5).value  # Колонка с процентом сходства
-            if similarity < 50:
-                for col in range(1, 7):
-                    worksheet.cell(row=row, column=col).fill = red_fill
-            elif similarity < 80:
-                for col in range(1, 7):
-                    worksheet.cell(row=row, column=col).fill = yellow_fill
+    # Создаем папку для постоянного хранения отчетов, если её нет
+    reports_archive_dir = script_dir / 'verification reports'
+    debug_logger.debug(f"📁 Папка архива отчетов: {reports_archive_dir}")
+    if not os.path.exists(reports_archive_dir):
+        os.makedirs(reports_archive_dir)
+        debug_logger.info("📁 Создана папка для архива отчетов")
     
-    error_count = len(all_results)
+    # Путь для дубликата отчета в архиве
+    archive_output_file = reports_archive_dir / f"file_comparison_results_{timestamp}.xlsx"
+    
+    debug_logger.info("📊 Создаем расширенный отчет Excel с 5 листами")
+    
+    # Функция для сохранения отчета (будем использовать дважды)
+    def save_report_to_file(file_path):
+        with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+            # Лист 1: Краткая сводка
+            executive_summary_df.to_excel(writer, index=False, header=False, sheet_name='Краткая сводка')
+            
+            # Лист 2: Все файлы  
+            all_results_df.to_excel(writer, index=False, sheet_name='Все файлы')
+            
+            # Лист 3: Только ошибки (как раньше)
+            errors_only_df.to_excel(writer, index=False, sheet_name='Только ошибки')
+            
+            # Лист 4: Статистика
+            detailed_stats_df.to_excel(writer, index=False, header=False, sheet_name='Детальная статистика')
+            
+            # Лист 5: Рекомендации
+            recommendations_df.to_excel(writer, index=False, sheet_name='Рекомендации')
+            
+            # Лист 6: Неиспользованные файлы (если есть)
+            if len(unused_files) > 0:
+                unused_files_df.to_excel(writer, index=False, sheet_name='Неиспользованные файлы')
+            
+            # Форматирование листов
+            _format_excel_sheets(writer, all_results_df, errors_only_df, len(unused_files))
+    
+    # Сохраняем отчет в основную папку results (для интерфейса)
+    debug_logger.info("💾 Сохраняем отчет в папку results")
+    save_report_to_file(output_file)
+    
+    # Сохраняем дубликат в архивную папку (всегда, независимо от диалога сохранения)
+    debug_logger.info("📂 Сохраняем дубликат отчета в архивную папку")
+    save_report_to_file(archive_output_file)
+    
+    error_count = len(errors_only)
     success_message = f"Найдено {error_count} файлов с различиями" if error_count > 0 else "Все файлы соответствуют записям в Excel"
     
     result = {
@@ -350,13 +590,16 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
         'message': success_message,
         'results_file': str(output_file),
         'error_count': error_count,
-        'results_data': all_results    }
+        'results_data': all_results
+    }
 
     if not result['success']:
         debug_logger.error(f"\n❌ {result['message']}")
     else:
         debug_logger.success(f"\n✅ {result['message']}")
-        debug_logger.info(f"📊 Результаты сохранены в файл: {result['results_file']}")
+        debug_logger.info(f"📊 Расширенный отчет сохранен в файл: {result['results_file']}")
+        debug_logger.info(f"📂 Дубликат сохранен в архив: {archive_output_file}")
+        debug_logger.info(f"📋 Создано листов: {'6' if len(unused_files) > 0 else '5'}")
         
         if result.get('error_count', 0) > 0:
             debug_logger.warning(f"⚠️ Найдено ошибок: {result['error_count']}")
@@ -364,6 +607,188 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             debug_logger.success(f"🎉 Ошибок не найдено!")
 
     return result
+
+
+def _format_excel_sheets(writer, all_results_df, errors_only_df, unused_files_count):
+    """Форматирует листы Excel для лучшего визуального восприятия"""
+    
+    # Определяем стили
+    red_fill = PatternFill(start_color='FFFF0000', end_color='FFFF0000', fill_type='solid')
+    yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+    green_fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')
+    header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+    header_font = Font(color='FFFFFF', bold=True)
+    bold_font = Font(bold=True)
+    
+    # Форматируем лист "Краткая сводка"
+    if 'Краткая сводка' in writer.sheets:
+        ws = writer.sheets['Краткая сводка']
+        
+        # Определяем специальные строки для форматирования
+        section_headers = ['Сводка по проверке файлов', 'Общая статистика', 'Статистика по типам файлов', 'Статистика по релизам']
+        table_header = ['Релиз', 'Всего файлов', 'Найдено', 'Отсутствует', 'Процент найденных']
+        
+        # Форматируем заголовки разделов и таблицу
+        for row_idx, row in enumerate(ws.iter_rows(), 1):
+            for col_idx, cell in enumerate(row, 1):
+                if cell.value:
+                    # Главный заголовок
+                    if cell.value == 'Сводка по проверке файлов':
+                        cell.font = Font(bold=True, size=14)
+                        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+                        cell.font = Font(color='FFFFFF', bold=True, size=14)
+                    
+                    # Заголовки разделов
+                    elif cell.value in section_headers[1:]:
+                        cell.font = Font(bold=True, size=12)
+                        cell.fill = PatternFill(start_color='D9E2F3', end_color='D9E2F3', fill_type='solid')
+                    
+                    # Заголовок таблицы релизов
+                    elif isinstance(cell.value, str) and cell.value in table_header:
+                        cell.font = Font(bold=True)
+                        cell.fill = PatternFill(start_color='E2EFDA', end_color='E2EFDA', fill_type='solid')
+                        # Применяем форматирование ко всей строке заголовка таблицы
+                        for c in range(1, 6):  # 5 колонок в таблице релизов
+                            header_cell = ws.cell(row=row_idx, column=c)
+                            header_cell.font = Font(bold=True)
+                            header_cell.fill = PatternFill(start_color='E2EFDA', end_color='E2EFDA', fill_type='solid')
+        
+        # Устанавливаем ширину столбцов
+        ws.column_dimensions['A'].width = 35  # Названия релизов или описания
+        ws.column_dimensions['B'].width = 15  # Всего файлов
+        ws.column_dimensions['C'].width = 15  # Найдено
+        ws.column_dimensions['D'].width = 15  # Отсутствует  
+        ws.column_dimensions['E'].width = 18  # Процент найденных
+    
+    # Форматируем лист "Все файлы"
+    if 'Все файлы' in writer.sheets and len(all_results_df) > 0:
+        ws = writer.sheets['Все файлы']
+        
+        # Заголовки
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+        
+        # Выделяем строки цветом в зависимости от статуса
+        for row in range(2, len(all_results_df) + 2):
+            try:
+                similarity = ws.cell(row=row, column=5).value  # Колонка с процентом сходства
+                if similarity == 100:
+                    for col in range(1, 8):
+                        ws.cell(row=row, column=col).fill = green_fill
+                elif similarity < 50:
+                    for col in range(1, 8):
+                        ws.cell(row=row, column=col).fill = red_fill
+                elif similarity < 80:
+                    for col in range(1, 8):
+                        ws.cell(row=row, column=col).fill = yellow_fill
+            except:
+                pass
+        
+        # Автоширина столбцов
+        for column in ws.columns:
+            max_length = 0
+            column = [cell for cell in column]
+            for cell in column:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column[0].column_letter].width = adjusted_width
+    
+    # Форматируем лист "Только ошибки" (оригинальная логика)
+    if 'Только ошибки' in writer.sheets and len(errors_only_df) > 0:
+        ws = writer.sheets['Только ошибки']
+        
+        # Заголовки
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+        
+        # Проверяем, есть ли это сообщение об отсутствии ошибок
+        success_message_row = None
+        for row_idx in range(2, len(errors_only_df) + 2):
+            cell_value = ws.cell(row=row_idx, column=1).value
+            if cell_value == 'Все файлы из Excel найдены в директории':
+                success_message_row = row_idx
+                break
+        
+        if success_message_row:
+            # Форматируем сообщение об успехе
+            success_cell = ws.cell(row=success_message_row, column=1)
+            success_cell.font = Font(bold=True, size=12, color='008000')  # Зелёный цвет
+            success_cell.fill = PatternFill(start_color='E8F5E8', end_color='E8F5E8', fill_type='solid')  # Светло-зелёный фон
+            
+            # Объединяем ячейки для сообщения на всю строку
+            ws.merge_cells(f'A{success_message_row}:G{success_message_row}')
+        else:
+            # Выделяем строки цветом в зависимости от процента сходства (только если есть ошибки)
+            for row in range(2, len(errors_only_df) + 2):
+                try:
+                    similarity = ws.cell(row=row, column=5).value  # Колонка с процентом сходства
+                    if similarity < 50:
+                        for col in range(1, 8):
+                            ws.cell(row=row, column=col).fill = red_fill
+                    elif similarity < 80:
+                        for col in range(1, 8):
+                            ws.cell(row=row, column=col).fill = yellow_fill
+                except:
+                    pass
+        
+        # Автоширина столбцов
+        for column in ws.columns:
+            max_length = 0
+            column = [cell for cell in column]
+            for cell in column:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column[0].column_letter].width = adjusted_width
+    
+    # Форматируем остальные листы
+    for sheet_name in ['Детальная статистика', 'Рекомендации']:
+        if sheet_name in writer.sheets:
+            ws = writer.sheets[sheet_name]
+            
+            # Автоширина столбцов
+            for column in ws.columns:
+                max_length = 0
+                column = [cell for cell in column]
+                for cell in column:
+                    try:
+                        if cell.value and len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                ws.column_dimensions[column[0].column_letter].width = adjusted_width
+    
+    # Форматируем лист неиспользованных файлов если есть
+    if unused_files_count > 0 and 'Неиспользованные файлы' in writer.sheets:
+        ws = writer.sheets['Неиспользованные файлы']
+        
+        # Заголовки
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+        
+        # Автоширина столбцов
+        for column in ws.columns:
+            max_length = 0
+            column = [cell for cell in column]
+            for cell in column:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column[0].column_letter].width = adjusted_width
 
 
 def print_debug_info(filename, normalized_filename):

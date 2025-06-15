@@ -1,1 +1,76 @@
-{}
+{
+  "timestamp": "2025-06-16T01:13:01.208041",
+  "excel_file_path": "C:/Users/romann/Downloads/relises/releases.xlsx",
+  "directory_path": "C:/Users/romann/Downloads/relises",
+  "comparison_result": {
+    "success": true,
+    "message": "Все файлы соответствуют записям в Excel",
+    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_01-12-59.xlsx",
+    "error_count": 0,
+    "results_data": [
+      {
+        "Тип файла": "Трек",
+        "Название в Excel": "A World Without You.wav",
+        "Найден в папке": "A World Without You.wav",
+        "Ближайшее совпадение": "A World Without You.wav",
+        "Процент сходства": 100.0,
+        "Различия": "",
+        "Статус": "Точное соответствие"
+      },
+      {
+        "Тип файла": "Обложка",
+        "Название в Excel": "A World Without You.jpg",
+        "Найден в папке": "A World Without You.jpg",
+        "Ближайшее совпадение": "A World Without You.jpg",
+        "Процент сходства": 100.0,
+        "Различия": "",
+        "Статус": "Точное соответствие"
+      },
+      {
+        "Тип файла": "Трек",
+        "Название в Excel": "Arabic.wav",
+        "Найден в папке": "Arabic.wav",
+        "Ближайшее совпадение": "Arabic.wav",
+        "Процент сходства": 100.0,
+        "Различия": "",
+        "Статус": "Точное соответствие"
+      },
+      {
+        "Тип файла": "Обложка",
+        "Название в Excel": "Arabic.jpg",
+        "Найден в папке": "Arabic.jpg",
+        "Ближайшее совпадение": "Arabic.jpg",
+        "Процент сходства": 100.0,
+        "Различия": "",
+        "Статус": "Точное соответствие"
+      },
+      {
+        "Тип файла": "Трек",
+        "Название в Excel": "Atmosphere.wav",
+        "Найден в папке": "Atmosphere.wav",
+        "Ближайшее совпадение": "Atmosphere.wav",
+        "Процент сходства": 100.0,
+        "Различия": "",
+        "Статус": "Точное соответствие"
+      },
+      {
+        "Тип файла": "Обложка",
+        "Название в Excel": "Atmosphere.jpg",
+        "Найден в папке": "Atmosphere.jpg",
+        "Ближайшее совпадение": "Atmosphere.jpg",
+        "Процент сходства": 100.0,
+        "Различия": "",
+        "Статус": "Точное соответствие"
+      }
+    ]
+  },
+  "analytics_summary": {
+    "total_errors": 0,
+    "audio_errors": 3,
+    "cover_errors": 3,
+    "has_errors": false,
+    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_01-12-59.xlsx",
+    "success": true,
+    "message": "Все файлы соответствуют записям в Excel"
+  }
+}
