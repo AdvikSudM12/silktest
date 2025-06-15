@@ -269,6 +269,20 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             'results_file': None,
             'error_count': 0
         }
+    
+    # Логируем информацию о колонках Excel файла
+    debug_logger.info(f"📋 Найденные колонки в Excel файле: {list(df.columns)}")
+    if 'release_name' in df.columns:
+        debug_logger.info("✅ Колонка 'release_name' найдена в Excel файле")
+        # Проверяем сколько строк имеют заполненную колонку release_name
+        filled_releases = df['release_name'].notna().sum()
+        total_rows = len(df)
+        debug_logger.info(f"📊 Заполненных релизов: {filled_releases}/{total_rows}")
+        if filled_releases > 0:
+            unique_releases = df['release_name'].dropna().unique()
+            debug_logger.info(f"🎵 Уникальные релизы: {list(unique_releases)}")
+    else:
+        debug_logger.warning("⚠️ Колонка 'release_name' НЕ найдена в Excel файле - все файлы будут отнесены к 'Без указания релиза'")
 
     # Создаем списки для хранения результатов
     all_results = []
@@ -452,7 +466,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     # Создаем статистику по релизам
     release_stats = {}
     for index, row in df.iterrows():
-        release_name = row.get('release', 'Без указания релиза')
+        release_name = row.get('release_name', 'Без указания релиза')
         if pd.isna(release_name) or str(release_name).strip() == '':
             release_name = 'Без указания релиза'
         
@@ -502,6 +516,12 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
         ['Статистика по релизам', ''],
         ['Релиз', 'Всего файлов', 'Найдено', 'Отсутствует', 'Процент найденных']
     ]
+    
+    # Логируем статистику по релизам перед добавлением в отчет
+    debug_logger.info("🎵 Формируем статистику по релизам:")
+    for release_name, stats in sorted(release_stats.items()):
+        percentage = (stats['found_files'] / stats['total_files'] * 100) if stats['total_files'] > 0 else 0
+        debug_logger.info(f"   📀 '{release_name}': {stats['total_files']} файлов, найдено {stats['found_files']} ({percentage:.0f}%)")
     
     # Добавляем статистику по каждому релизу
     for release_name, stats in sorted(release_stats.items()):
