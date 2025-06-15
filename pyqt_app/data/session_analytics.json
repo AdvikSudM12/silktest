@@ -1,11 +1,11 @@
 {
-  "timestamp": "2025-06-16T01:13:01.208041",
+  "timestamp": "2025-06-16T01:39:37.580223",
   "excel_file_path": "C:/Users/romann/Downloads/relises/releases.xlsx",
   "directory_path": "C:/Users/romann/Downloads/relises",
   "comparison_result": {
     "success": true,
     "message": "Все файлы соответствуют записям в Excel",
-    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_01-12-59.xlsx",
+    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_01-39-34.xlsx",
     "error_count": 0,
     "results_data": [
       {
@@ -69,7 +69,7 @@
     "audio_errors": 3,
     "cover_errors": 3,
     "has_errors": false,
-    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_01-12-59.xlsx",
+    "results_file": "P:\\emd\\silk\\silk\\results\\file_comparison_results_2025-06-16_01-39-34.xlsx",
     "success": true,
     "message": "Все файлы соответствуют записям в Excel"
   }

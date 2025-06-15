@@ -487,6 +487,18 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     
     executive_summary_df = pd.DataFrame(executive_summary)
     
+    # Читаем токен менеджера из config.json
+    manager_token = 'Не найден'
+    try:
+        config_file = script_dir / 'pyqt_app' / 'data' / 'config.json'
+        if os.path.exists(config_file):
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+                manager_token = config_data.get('user_id', 'Не найден')
+                debug_logger.debug(f"🔑 Загружен токен менеджера: {manager_token}")
+    except Exception as e:
+        debug_logger.warning(f"⚠️ Ошибка при чтении токена менеджера: {str(e)}")
+    
     # Создаем детальную статистику
     detailed_stats = [
         ['Категория', 'Количество', 'Процент'],
@@ -507,7 +519,9 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
          f"{(statistics['similarity_ranges']['0-49%']/total_files_excel*100):.1f}%" if total_files_excel > 0 else "0%"],
         ['', '', ''],
         ['Неиспользованные файлы', len(unused_files), 
-         f"{(len(unused_files)/statistics['total_actual_files']*100):.1f}%" if statistics['total_actual_files'] > 0 else "0%"]
+         f"{(len(unused_files)/statistics['total_actual_files']*100):.1f}%" if statistics['total_actual_files'] > 0 else "0%"],
+        ['', '', ''],
+        ['Токен менеджера', manager_token, '']
     ]
     
     detailed_stats_df = pd.DataFrame(detailed_stats)
@@ -552,14 +566,14 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     # Функция для сохранения отчета (будем использовать дважды)
     def save_report_to_file(file_path):
         with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-            # Лист 1: Краткая сводка
-            executive_summary_df.to_excel(writer, index=False, header=False, sheet_name='Краткая сводка')
-            
-            # Лист 2: Все файлы  
+            # Лист 1: Все файлы (теперь первый)
             all_results_df.to_excel(writer, index=False, sheet_name='Все файлы')
             
-            # Лист 3: Только ошибки (как раньше)
+            # Лист 2: Только ошибки (теперь второй)
             errors_only_df.to_excel(writer, index=False, sheet_name='Только ошибки')
+            
+            # Лист 3: Краткая сводка
+            executive_summary_df.to_excel(writer, index=False, header=False, sheet_name='Краткая сводка')
             
             # Лист 4: Статистика
             detailed_stats_df.to_excel(writer, index=False, header=False, sheet_name='Детальная статистика')
@@ -750,23 +764,50 @@ def _format_excel_sheets(writer, all_results_df, errors_only_df, unused_files_co
             adjusted_width = min(max_length + 2, 50)
             ws.column_dimensions[column[0].column_letter].width = adjusted_width
     
-    # Форматируем остальные листы
-    for sheet_name in ['Детальная статистика', 'Рекомендации']:
-        if sheet_name in writer.sheets:
-            ws = writer.sheets[sheet_name]
-            
-            # Автоширина столбцов
-            for column in ws.columns:
-                max_length = 0
-                column = [cell for cell in column]
-                for cell in column:
-                    try:
-                        if cell.value and len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                adjusted_width = min(max_length + 2, 50)
-                ws.column_dimensions[column[0].column_letter].width = adjusted_width
+    # Форматируем лист "Детальная статистика"
+    if 'Детальная статистика' in writer.sheets:
+        ws = writer.sheets['Детальная статистика']
+        
+        # Ищем строку с токеном менеджера и форматируем её
+        for row_idx, row in enumerate(ws.iter_rows(), 1):
+            for col_idx, cell in enumerate(row, 1):
+                if cell.value == 'Токен менеджера':
+                    # Форматируем всю строку с токеном менеджера
+                    for c in range(1, 4):  # 3 колонки в детальной статистике
+                        token_cell = ws.cell(row=row_idx, column=c)
+                        token_cell.font = Font(bold=True, size=11)
+                        token_cell.fill = PatternFill(start_color='FFE4B5', end_color='FFE4B5', fill_type='solid')  # Светло-оранжевый фон
+                    break
+        
+        # Автоширина столбцов
+        for column in ws.columns:
+            max_length = 0
+            column = [cell for cell in column]
+            for cell in column:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column[0].column_letter].width = adjusted_width
+    
+    # Форматируем лист "Рекомендации"
+    if 'Рекомендации' in writer.sheets:
+        ws = writer.sheets['Рекомендации']
+        
+        # Автоширина столбцов
+        for column in ws.columns:
+            max_length = 0
+            column = [cell for cell in column]
+            for cell in column:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column[0].column_letter].width = adjusted_width
     
     # Форматируем лист неиспользованных файлов если есть
     if unused_files_count > 0 and 'Неиспользованные файлы' in writer.sheets:
