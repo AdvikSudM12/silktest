@@ -11,6 +11,14 @@ import os
 from loguru import logger
 from pathlib import Path
 
+# Импорт для поддержки macOS app bundle
+try:
+    from macos_build.resource_utils import get_logs_dir, is_app_bundle
+    MACOS_BUILD_AVAILABLE = True
+except ImportError:
+    # В режиме разработки macos_build модули могут быть недоступны
+    MACOS_BUILD_AVAILABLE = False
+
 # Глобальный флаг для предотвращения дублирования инициализации
 _LOGGER_INITIALIZED = False
 
@@ -31,9 +39,16 @@ def setup_debug_logging():
     # Удаляем все существующие обработчики loguru (избегаем дублирования)
     logger.remove()
     
-    # Создаем директорию для логов
-    log_dir = Path(__file__).parent / "logs"
-    log_dir.mkdir(exist_ok=True)
+    # Создаем директорию для логов в зависимости от режима запуска
+    if MACOS_BUILD_AVAILABLE and is_app_bundle():
+        # App bundle режим - стандартная папка логов macOS
+        log_dir = get_logs_dir()
+        logger.debug("🍎 Используем стандартную папку логов macOS")
+    else:
+        # Режим разработки - как сейчас
+        log_dir = Path(__file__).parent / "logs"
+        log_dir.mkdir(exist_ok=True)
+        logger.debug("💻 Используем локальную папку логов")
     
     # Формат для консоли (цветной и краткий)
     console_format = (

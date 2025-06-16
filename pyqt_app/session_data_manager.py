@@ -11,6 +11,14 @@ from pathlib import Path
 from .logger_config import get_logger
 debug_logger = get_logger("session_data_manager")
 
+# Импорт для поддержки macOS app bundle
+try:
+    from macos_build.resource_utils import get_app_data_dir, is_app_bundle
+    MACOS_BUILD_AVAILABLE = True
+except ImportError:
+    # В режиме разработки macos_build модули могут быть недоступны
+    MACOS_BUILD_AVAILABLE = False
+
 
 class SessionDataManager:
     """
@@ -22,8 +30,16 @@ class SessionDataManager:
     
     def __init__(self):
         """Инициализация менеджера сессионных данных"""
-        # Определяем путь к файлу сессионных данных
-        self.data_dir = Path(__file__).parent / "data"
+        # Определяем пути к файлам в зависимости от режима запуска
+        if MACOS_BUILD_AVAILABLE and is_app_bundle():
+            # App bundle режим - пользовательские данные
+            self.data_dir = get_app_data_dir()
+            debug_logger.debug("🍎 Используем пользовательскую папку для сессионных данных")
+        else:
+            # Режим разработки - как сейчас
+            self.data_dir = Path(__file__).parent / "data"
+            debug_logger.debug("💻 Используем локальную папку для сессионных данных")
+        
         self.session_file = self.data_dir / "session_analytics.json"
         self.upload_state_file = self.data_dir / "upload_state.json"
         

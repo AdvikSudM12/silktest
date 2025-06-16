@@ -15,6 +15,14 @@ from pyqt_app.resources.icons import get_excel_icon, get_folder_icon
 from ..logger_config import get_logger
 debug_logger = get_logger("upload_page")
 
+# Импорт для поддержки macOS app bundle
+try:
+    from macos_build.resource_utils import get_app_data_dir, is_app_bundle
+    MACOS_BUILD_AVAILABLE = True
+except ImportError:
+    # В режиме разработки macos_build модули могут быть недоступны
+    MACOS_BUILD_AVAILABLE = False
+
 # Импорт сессионного менеджера данных
 from ..session_data_manager import session_manager
 
@@ -1087,9 +1095,16 @@ class UploadPage(BasePage):
         import os
         from datetime import datetime
         
-        # Создаем директорию для данных, если её нет
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-        os.makedirs(data_dir, exist_ok=True)
+        # Определяем директорию для данных в зависимости от режима запуска
+        if MACOS_BUILD_AVAILABLE and is_app_bundle():
+            # App bundle режим - пользовательские данные
+            data_dir = get_app_data_dir()
+            debug_logger.debug("🍎 Используем пользовательскую папку для сохранения путей")
+        else:
+            # Режим разработки - как сейчас
+            data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+            os.makedirs(data_dir, exist_ok=True)
+            debug_logger.debug("💻 Используем локальную папку для сохранения путей")
         
         paths_file = os.path.join(data_dir, "paths.json")
         
@@ -1128,7 +1143,14 @@ class UploadPage(BasePage):
         import json
         import os
         
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        # Определяем директорию для данных в зависимости от режима запуска
+        if MACOS_BUILD_AVAILABLE and is_app_bundle():
+            # App bundle режим - пользовательские данные
+            data_dir = get_app_data_dir()
+        else:
+            # Режим разработки - как сейчас
+            data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        
         paths_file = os.path.join(data_dir, "paths.json")
         
         try:

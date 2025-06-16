@@ -24,6 +24,26 @@ from ..env_manager import env_manager
 from ..logger_config import get_logger
 debug_logger = get_logger("settings_page")
 
+# Импорт для поддержки macOS app bundle
+try:
+    from macos_build.resource_utils import get_app_data_dir, is_app_bundle
+    MACOS_BUILD_AVAILABLE = True
+except ImportError:
+    # В режиме разработки macos_build модули могут быть недоступны
+    MACOS_BUILD_AVAILABLE = False
+
+def get_data_directory():
+    """Получает правильную директорию для данных в зависимости от режима запуска"""
+    if MACOS_BUILD_AVAILABLE and is_app_bundle():
+        # App bundle режим - пользовательские данные
+        return get_app_data_dir()
+    else:
+        # Режим разработки - как сейчас
+        import os
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        os.makedirs(data_dir, exist_ok=True)
+        return data_dir
+
 class ContainerWithShadow(QFrame):
     """Кастомный виджет-контейнер с эффектом тени"""
     def __init__(self, parent=None):
@@ -370,7 +390,7 @@ class SettingsPage(BasePage):
             import json
             import os
             
-            templates_path = os.path.join(os.path.dirname(__file__), "..", "data", "templates.json")
+            templates_path = os.path.join(get_data_directory(), "templates.json")
             if os.path.exists(templates_path):
                 with open(templates_path, "r", encoding="utf-8") as f:
                     templates = json.load(f)
@@ -419,7 +439,7 @@ class SettingsPage(BasePage):
             import json
             import os
             
-            templates_path = os.path.join(os.path.dirname(__file__), "..", "data", "templates.json")
+            templates_path = os.path.join(get_data_directory(), "templates.json")
             
             if os.path.exists(templates_path):
                 with open(templates_path, "r", encoding="utf-8") as f:
@@ -505,10 +525,8 @@ class SettingsPage(BasePage):
         import json
         import os
         
-        # Создаем директорию для данных, если её нет
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-        os.makedirs(data_dir, exist_ok=True)
-        
+        # Используем правильную директорию данных
+        data_dir = get_data_directory()
         templates_path = os.path.join(data_dir, "templates.json")
         
         # Загружаем существующие шаблоны или создаем новый словарь
@@ -591,10 +609,8 @@ class SettingsPage(BasePage):
         import json
         import os
         
-        # Создаем директорию для данных, если её нет
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-        os.makedirs(data_dir, exist_ok=True)
-        
+        # Используем правильную директорию данных
+        data_dir = get_data_directory()
         config_path = os.path.join(data_dir, "config.json")
         
         # Загружаем текущий config для сохранения last_selected_template
@@ -678,7 +694,7 @@ class SettingsPage(BasePage):
         import json
         import os
         
-        templates_path = os.path.join(os.path.dirname(__file__), "..", "data", "templates.json")
+        templates_path = os.path.join(get_data_directory(), "templates.json")
         
         # Загружаем существующие шаблоны
         if os.path.exists(templates_path):
@@ -837,10 +853,8 @@ class SettingsDialog(QDialog):
         import os
         from datetime import datetime
         
-        # Создаем директорию для данных, если её нет
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-        os.makedirs(data_dir, exist_ok=True)
-        
+        # Используем правильную директорию данных
+        data_dir = get_data_directory()
         config_path = os.path.join(data_dir, "config.json")
         
         # Загружаем текущий config для сохранения last_selected_template

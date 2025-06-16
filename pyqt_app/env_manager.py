@@ -16,17 +16,34 @@ from datetime import datetime
 from .logger_config import get_logger
 debug_logger = get_logger("env_manager")
 
+# Импорт для поддержки macOS app bundle
+try:
+    from macos_build.resource_utils import get_app_data_dir, get_env_file_path, is_app_bundle
+    MACOS_BUILD_AVAILABLE = True
+except ImportError:
+    # В режиме разработки macos_build модули могут быть недоступны
+    MACOS_BUILD_AVAILABLE = False
+
 class EnvManager:
     """Класс для управления .env файлом с токенами из templates.json"""
     
     def __init__(self):
         """Инициализация менеджера"""
-        # Определяем пути к файлам
-        self.root_dir = Path(__file__).parent.parent  # Корень проекта
-        self.data_dir = Path(__file__).parent / "data"
+        # Определяем пути к файлам в зависимости от режима запуска
+        if MACOS_BUILD_AVAILABLE and is_app_bundle():
+            # App bundle режим - пользовательские данные
+            self.data_dir = get_app_data_dir()
+            self.env_file = get_env_file_path()
+            debug_logger.debug("🍎 Используем пути для macOS app bundle")
+        else:
+            # Режим разработки - как сейчас
+            self.root_dir = Path(__file__).parent.parent
+            self.data_dir = Path(__file__).parent / "data"
+            self.env_file = self.root_dir / ".env"
+            debug_logger.debug("💻 Используем пути для режима разработки")
+        
         self.templates_file = self.data_dir / "templates.json"
         self.config_file = self.data_dir / "config.json"
-        self.env_file = self.root_dir / ".env"
         
         debug_logger.info("🏗️ Инициализация EnvManager")
         debug_logger.debug(f"📁 Корневая директория: {self.root_dir}")
