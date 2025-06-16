@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
-Файл для запуска приложения Silk Loader
+Файл для запуска приложения GoSilk Staff
 Запускает GUI приложение
 """
 
@@ -18,11 +18,11 @@ if __name__ == "__main__":
     
     try:
         # Создаем главное окно (авторизация происходит в конструкторе)
-    window = MainWindow()
+        window = MainWindow()
         
         # Если окно создано успешно, показываем его
-    window.show()
-    sys.exit(app.exec()) 
+        window.show()
+        sys.exit(app.exec())
         
     except SystemExit:
         # Если авторизация была отменена, просто завершаем приложение
