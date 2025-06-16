@@ -104,9 +104,9 @@ jobs:
         env_mgr = EnvManager()
         print(f'✅ EnvManager инициализирован: {env_mgr.data_dir}')
         
-        # Тестируем session_data_manager
-        from pyqt_app.session_data_manager import session_manager
-        print(f'✅ SessionManager инициализирован: {session_manager.base_dir}')
+                 # Тестируем session_data_manager
+         from pyqt_app.session_data_manager import session_manager
+         print(f'✅ SessionManager инициализирован: {session_manager.data_dir}')
         
         # Тестируем resource_utils
         from macos_build.resource_utils import is_app_bundle, get_app_data_dir
