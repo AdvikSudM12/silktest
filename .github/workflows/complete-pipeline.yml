@@ -862,7 +862,7 @@ jobs:
         try:
             env_mgr = EnvManager()
             templates = env_mgr.load_templates()
-            config = env_mgr.load_config()
+            config = env_mgr.load_current_config()
             print('✅ env_manager работает с templates.json и config.json')
         except Exception as e:
             print(f'⚠️ env_manager ошибка: {str(e)[:50]}')
