@@ -1175,6 +1175,17 @@ jobs:
           else
             echo "⚠️ Node.js runtime не найден в bundle - будет использован системный"
           fi
+          
+          # Делаем .bin файлы исполняемыми
+          npm_bin_dir="dist/$app_name_with_arch/Contents/Resources/node_modules_bin"
+          if [ -d "$npm_bin_dir" ]; then
+            echo "🔧 Устанавливаем права исполнения для npm .bin файлов..."
+            chmod +x "$npm_bin_dir"/*
+            echo "✅ Права исполнения установлены для .bin файлов"
+            ls -la "$npm_bin_dir"
+          else
+            echo "⚠️ npm .bin файлы не найдены в bundle"
+          fi
         else
           echo "❌ .app bundle не найден!"
           exit 1

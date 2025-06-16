@@ -44,6 +44,24 @@ python_files = [
     str(base_dir / 'run_app.py'),
 ]
 
+# Функция для безопасного добавления .bin файлов
+def add_bin_files():
+    """Добавляет критичные исполняемые файлы из node_modules/.bin"""
+    bin_files = []
+    bin_dir = base_dir / 'node_modules' / '.bin'
+    
+    # Критичные исполняемые файлы для TypeScript
+    critical_bins = ['ts-node', 'tsc', 'ts-node-esm', 'ts-node-script']
+    
+    for bin_name in critical_bins:
+        bin_file = bin_dir / bin_name
+        if bin_file.exists():
+            # Добавляем как отдельный файл, а не директорию
+            bin_files.append((str(bin_file), f'node_modules_bin/{bin_name}'))
+            print(f"   ✅ Включен {bin_name}")
+    
+    return bin_files
+
 # Дополнительные данные для включения в app bundle
 datas = [
     # PyQt ресурсы и данные
@@ -52,21 +70,6 @@ datas = [
     
     # Скомпилированный JavaScript из TypeScript
     (str(base_dir / 'src'), 'src'),
-    
-    # Критически важные Node.js модули
-    (str(base_dir / 'node_modules' / 'ts-node'), 'node_modules/ts-node'),
-    (str(base_dir / 'node_modules' / 'typescript'), 'node_modules/typescript'),
-    (str(base_dir / 'node_modules' / 'axios'), 'node_modules/axios'),
-    (str(base_dir / 'node_modules' / 'dotenv'), 'node_modules/dotenv'),
-    (str(base_dir / 'node_modules' / 'dayjs'), 'node_modules/dayjs'),
-    (str(base_dir / 'node_modules' / 'tus-js-client'), 'node_modules/tus-js-client'),
-    (str(base_dir / 'node_modules' / 'convert-csv-to-json'), 'node_modules/convert-csv-to-json'),
-    (str(base_dir / 'node_modules' / 'convert-excel-to-json'), 'node_modules/convert-excel-to-json'),
-    (str(base_dir / 'node_modules' / 'tsconfig-paths'), 'node_modules/tsconfig-paths'),
-    
-    # Включаем .bin директорию с исполняемыми файлами npm пакетов
-    # Убираем из-за конфликта с PyInstaller - исполняемые файлы уже включены через отдельные пакеты
-    # (str(base_dir / 'node_modules' / '.bin'), 'node_modules/.bin'),
     
     # Конфигурационные файлы
     (str(base_dir / 'package.json'), '.'),
@@ -78,6 +81,32 @@ datas = [
     # Шаблон конфигурации
     (str(base_dir / 'macos_build' / 'env_template.txt'), '.'),
 ]
+
+# Режим включения Node.js модулей
+INCLUDE_ALL_NODE_MODULES = True  # Измените на True для включения всех модулей
+
+if INCLUDE_ALL_NODE_MODULES:
+    print("📦 Включаем ВСЕ Node.js модули (может быть медленно и занимать много места)...")
+    node_modules_path = base_dir / 'node_modules'
+    if node_modules_path.exists():
+        datas.append((str(node_modules_path), 'node_modules'))
+        print(f"   ✅ Включена вся папка node_modules")
+else:
+    # Автоматически добавляем только нужные Node.js модули
+    print("📦 Определяем необходимые Node.js модули...")
+    try:
+        # Попробуем автоматическое определение
+        node_modules = get_required_node_modules()
+        datas.extend(node_modules)
+    except Exception as e:
+        print(f"⚠️ Автоматическое определение не удалось: {e}")
+        # Fallback к ручному списку
+        node_modules = get_manual_node_modules()
+        datas.extend(node_modules)
+
+# Добавляем критичные исполняемые файлы из .bin
+print("🔧 Включаем критичные исполняемые файлы из node_modules/.bin:")
+datas.extend(add_bin_files())
 
 # Добавляем Node.js runtime в bundle (встраиваем полностью)
 if node_runtime:
@@ -127,6 +156,66 @@ hiddenimports = [
     'xml.etree',
     'xml.etree.ElementTree',
 ]
+
+# Функция для автоматического определения нужных Node.js модулей
+def get_required_node_modules():
+    """Автоматически определяет необходимые Node.js модули из package.json"""
+    import json
+    
+    required_modules = []
+    package_json_path = base_dir / 'package.json'
+    
+    if package_json_path.exists():
+        try:
+            with open(package_json_path, 'r', encoding='utf-8') as f:
+                package_data = json.load(f)
+            
+            # Получаем зависимости из package.json
+            dependencies = package_data.get('dependencies', {})
+            dev_dependencies = package_data.get('devDependencies', {})
+            
+            # Объединяем все зависимости
+            all_deps = {**dependencies, **dev_dependencies}
+            
+            print("🔍 Автоматическое определение Node.js модулей:")
+            
+            for module_name in all_deps.keys():
+                module_path = base_dir / 'node_modules' / module_name
+                if module_path.exists():
+                    required_modules.append((str(module_path), f'node_modules/{module_name}'))
+                    print(f"   ✅ {module_name}")
+                else:
+                    print(f"   ⚠️ {module_name} (не найден)")
+            
+            print(f"📊 Найдено модулей: {len(required_modules)} из {len(all_deps)}")
+            
+        except Exception as e:
+            print(f"❌ Ошибка чтения package.json: {e}")
+            # Fallback к ручному списку
+            return get_manual_node_modules()
+    
+    return required_modules
+
+def get_manual_node_modules():
+    """Ручной список критичных Node.js модулей (fallback)"""
+    manual_modules = [
+        'ts-node', 'typescript', 'axios', 'dotenv', 'dayjs',
+        'tus-js-client', 'convert-csv-to-json', 'convert-excel-to-json',
+        'tsconfig-paths'
+    ]
+    
+    modules = []
+    print("🔧 Используем ручной список модулей:")
+    
+    for module_name in manual_modules:
+        module_path = base_dir / 'node_modules' / module_name
+        if module_path.exists():
+            modules.append((str(module_path), f'node_modules/{module_name}'))
+            print(f"   ✅ {module_name}")
+        else:
+            print(f"   ❌ {module_name} (не найден)")
+    
+    return modules
 
 a = Analysis(
     python_files,

@@ -154,9 +154,13 @@ class NodeRunner:
         Returns:
             Путь к ts-node или None
         """
-        # Пробуем найти в node_modules (основной модуль ts-node)
         if is_app_bundle():
-            # Ищем главный файл ts-node в установленном модуле
+            # Сначала пробуем найти встроенный исполняемый файл ts-node
+            ts_node_bin = get_resource_path('node_modules_bin/ts-node')
+            if ts_node_bin.exists():
+                return str(ts_node_bin)
+            
+            # Fallback: ищем главный файл ts-node в установленном модуле
             ts_node_main = get_resource_path('node_modules/ts-node/dist/bin.js')
             if ts_node_main.exists():
                 return str(ts_node_main)
