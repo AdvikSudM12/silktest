@@ -6,7 +6,8 @@ from pathlib import Path
 block_cipher = None
 
 # Определяем базовую директорию (корень проекта)
-base_dir = Path(__file__).parent.parent
+# В PyInstaller контексте используем os.getcwd() вместо __file__
+base_dir = Path(os.getcwd())
 
 # Основной файл запуска
 python_files = [
@@ -94,6 +95,10 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# Проверяем наличие иконки
+icon_path = base_dir / 'pyqt_app' / 'resources' / 'icon.icns'
+app_icon = str(icon_path) if icon_path.exists() else None
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -109,7 +114,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(base_dir / 'pyqt_app' / 'resources' / 'icon.icns'),
+    icon=app_icon,
 )
 
 coll = COLLECT(
@@ -127,7 +132,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='GoSilk Staff.app',
-    icon=str(base_dir / 'pyqt_app' / 'resources' / 'icon.icns'),
+    icon=app_icon,
     bundle_identifier='com.emd.gosilk-staff',
     version='1.0.0',
     info_plist={

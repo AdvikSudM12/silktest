@@ -1,0 +1,67 @@
+name: 📢 Notifications
+
+on:
+  workflow_run:
+    workflows: ["🍎 Build macOS App", "🎉 Create Release"]
+    types:
+      - completed
+
+jobs:
+  notify-build-status:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion != 'skipped' }}
+    
+    steps:
+    - name: 📥 Get workflow info
+      id: workflow_info
+      run: |
+        echo "workflow_name=${{ github.event.workflow_run.name }}" >> $GITHUB_OUTPUT
+        echo "conclusion=${{ github.event.workflow_run.conclusion }}" >> $GITHUB_OUTPUT
+        echo "branch=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+        echo "commit=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+        echo "run_url=${{ github.event.workflow_run.html_url }}" >> $GITHUB_OUTPUT
+        
+    - name: 🎉 Success notification
+      if: ${{ github.event.workflow_run.conclusion == 'success' }}
+      run: |
+        echo "✅ ${{ steps.workflow_info.outputs.workflow_name }} завершился успешно!"
+        echo "🌿 Ветка: ${{ steps.workflow_info.outputs.branch }}"
+        echo "🔗 Коммит: ${{ steps.workflow_info.outputs.commit }}"
+        echo "📋 Детали: ${{ steps.workflow_info.outputs.run_url }}"
+        
+        # Здесь можно добавить отправку в Slack/Discord/Telegram
+        # Например:
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data '{"text":"✅ GoSilk Staff build successful!"}' \
+        #   $SLACK_WEBHOOK_URL
+        
+    - name: ❌ Failure notification  
+      if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+      run: |
+        echo "❌ ${{ steps.workflow_info.outputs.workflow_name }} завершился с ошибкой!"
+        echo "🌿 Ветка: ${{ steps.workflow_info.outputs.branch }}"
+        echo "🔗 Коммит: ${{ steps.workflow_info.outputs.commit }}"
+        echo "📋 Детали: ${{ steps.workflow_info.outputs.run_url }}"
+        
+        # Здесь можно добавить отправку уведомления об ошибке
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data '{"text":"❌ GoSilk Staff build failed!"}' \
+        #   $SLACK_WEBHOOK_URL
+        
+    - name: 📊 Generate summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # 📊 Сводка по сборке GoSilk Staff
+        
+        ## ℹ️ Информация о workflow:
+        - **Название:** ${{ steps.workflow_info.outputs.workflow_name }}
+        - **Результат:** ${{ steps.workflow_info.outputs.conclusion == 'success' && '✅ Успешно' || '❌ Ошибка' }}
+        - **Ветка:** ${{ steps.workflow_info.outputs.branch }}
+        - **Коммит:** \`${{ steps.workflow_info.outputs.commit }}\`
+        
+        ## 🔗 Полезные ссылки:
+        - [📋 Детали выполнения](${{ steps.workflow_info.outputs.run_url }})
+        - [📦 Releases](https://github.com/AdvikSudM12/silk/releases)
+        - [🔧 Actions](https://github.com/AdvikSudM12/silk/actions)
+        
+        EOF 
