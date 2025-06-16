@@ -1244,13 +1244,15 @@ jobs:
         echo "📁 Содержимое артефакта:"
         ls -la
         
-        if [ -d "GoSilkStaff.app" ]; then
-          echo "✅ .app bundle найден"
+        # Ищем любой .app файл (имя может варьироваться)
+        app_found=$(find . -name "*.app" -type d | head -1)
+        if [ -n "$app_found" ]; then
+          echo "✅ .app bundle найден: $app_found"
           echo "📊 Размер .app bundle:"
-          du -sh GoSilkStaff.app
+          du -sh "$app_found"
           
           echo "📁 Структура .app bundle:"
-          ls -la GoSilkStaff.app/Contents/
+          ls -la "$app_found/Contents/" || echo "⚠️ Не удалось показать структуру Contents"
         else
           echo "❌ .app bundle не найден"
           exit 1
