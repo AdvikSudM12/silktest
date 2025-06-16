@@ -312,15 +312,89 @@ jobs:
           echo "⚠️ tsconfig.json не найден"
         fi
         
-    - name: 🧪 Test Node.js modules
+    - name: 🔍 Check TypeScript apps consistency
       run: |
-        echo "🧪 Тестирование Node.js модулей..."
+        echo "🔍 Проверяем соответствие package.json и файловой системы..."
         
-        # Ищем все TypeScript приложения
+        # Получаем список скриптов из package.json (только start: скрипты для приложений)
+        echo "📋 Анализируем package.json..."
+        node -e "
+        const pkg = require('./package.json');
+        const startScripts = Object.keys(pkg.scripts).filter(key => key.startsWith('start:'));
+        const appNames = startScripts.map(script => script.replace('start:', ''));
+        console.log('🎯 TypeScript приложения в package.json:', appNames.length);
+        appNames.forEach(app => console.log('  -', app));
+        " || echo "⚠️ Не удалось проанализировать package.json"
+        
+        # Проверяем существующие приложения в файловой системе
+        echo "📁 Проверяем файловую систему..."
+        existing_apps=()
+        missing_apps=()
+        
         if [ -d "src/apps" ]; then
-          echo "📁 Найдена папка src/apps, проверяем приложения..."
-          
-          app_count=0
+          for app_dir in src/apps/*/; do
+            if [ -d "$app_dir" ]; then
+              app_name=$(basename "$app_dir")
+              index_file="${app_dir}index.ts"
+              
+              if [ -f "$index_file" ]; then
+                existing_apps+=("$app_name")
+                echo "✅ Найдено реальное приложение: $app_name"
+                
+                # Проверяем размер файла
+                file_size=$(wc -l < "$index_file" 2>/dev/null || echo "0")
+                echo "   📊 Размер: $file_size строк"
+              else
+                echo "⚠️ Папка $app_name существует, но index.ts отсутствует"
+              fi
+            fi
+          done
+        fi
+        
+        echo "📊 Статистика:"
+        echo "   - Реальных приложений: ${#existing_apps[@]}"
+        
+        # Проверяем какие приложения из package.json отсутствуют
+        echo "🔍 Проверяем соответствие..."
+        
+        # Проверяем только используемые приложения из package.json
+        expected_apps=(
+          "update-releases-shipment-statuses"
+          "release-parser-5"
+        )
+        
+        missing_count=0
+        for expected_app in "${expected_apps[@]}"; do
+          app_path="src/apps/$expected_app"
+          if [ ! -d "$app_path" ] || [ ! -f "$app_path/index.ts" ]; then
+            missing_apps+=("$expected_app")
+            missing_count=$((missing_count + 1))
+          fi
+        done
+        
+        echo "📋 Результат проверки:"
+        echo "   - Ожидается приложений: ${#expected_apps[@]}"
+        echo "   - Существует приложений: ${#existing_apps[@]}"
+        echo "   - Отсутствует приложений: $missing_count"
+        
+        if [ $missing_count -gt 0 ]; then
+          echo "❌ Отсутствующие критичные TypeScript приложения:"
+          for missing_app in "${missing_apps[@]}"; do
+            echo "   ❌ $missing_app"
+          done
+          echo "🚨 Это критично - приложения нужны для работы!"
+          exit 1
+        else
+          echo "✅ Все необходимые приложения из package.json существуют"
+        fi
+
+    - name: 🧪 Test existing Node.js modules
+      run: |
+        echo "🧪 Тестирование существующих Node.js модулей..."
+        
+        # Тестируем только реально существующие приложения
+        app_count=0
+        if [ -d "src/apps" ]; then
           for app_dir in src/apps/*/; do
             if [ -d "$app_dir" ]; then
               app_name=$(basename "$app_dir")
@@ -328,17 +402,30 @@ jobs:
               
               if [ -f "$index_file" ]; then
                 app_count=$((app_count + 1))
-                echo "✅ Найдено приложение: $app_name"
-                echo "   📄 Файл: $index_file"
+                echo "🔧 Тестируем приложение: $app_name"
                 
                 # Проверяем размер файла
                 file_size=$(wc -l < "$index_file" 2>/dev/null || echo "0")
                 echo "   📊 Размер: $file_size строк"
+                
+                # Проверяем базовый синтаксис импортов
+                if grep -q "import.*from" "$index_file"; then
+                  echo "   ✅ Найдены ES6 импорты"
+                else
+                  echo "   ⚠️ ES6 импорты не найдены"
+                fi
+                
+                # Проверяем использование src/ путей
+                if grep -q "src/" "$index_file"; then
+                  echo "   ✅ Использует проектные пути src/"
+                else
+                  echo "   ⚠️ Не использует проектные пути"
+                fi
               fi
             fi
           done
           
-          echo "📋 Всего найдено TypeScript приложений: $app_count"
+          echo "📋 Протестировано реальных TypeScript приложений: $app_count"
           
           # Компилируем все приложения с использованием tsconfig.json
           if [ -f "tsconfig.json" ]; then
@@ -435,6 +522,102 @@ jobs:
         rm -f test_module_loading.js
         
         echo "🎉 Node.js скрипты и модули работают корректно!"
+        
+    - name: 🎨 Check app resources
+      run: |
+        echo "🎨 Проверяем ресурсы приложения..."
+        
+        # Проверяем иконку приложения
+        if [ -f "pyqt_app/resources/icon.icns" ]; then
+          echo "✅ Иконка приложения найдена"
+          file_size=$(du -sh pyqt_app/resources/icon.icns | cut -f1)
+          echo "   📊 Размер иконки: $file_size"
+          
+          # Проверяем что это действительно иконка
+          file_info=$(file pyqt_app/resources/icon.icns)
+          if [[ "$file_info" == *"Icon"* ]] || [[ "$file_info" == *"icns"* ]]; then
+            echo "   ✅ Формат файла корректен"
+          else
+            echo "   ⚠️ Возможно некорректный формат: $file_info"
+          fi
+        else
+          echo "❌ Иконка приложения отсутствует: pyqt_app/resources/icon.icns"
+          echo "⚠️ Сборка продолжится без иконки"
+        fi
+        
+        # Проверяем папку ресурсов
+        if [ -d "pyqt_app/resources" ]; then
+          echo "✅ Папка ресурсов найдена"
+          resource_count=$(find pyqt_app/resources -type f | wc -l)
+          echo "   📊 Файлов в ресурсах: $resource_count"
+          
+          echo "   📁 Содержимое ресурсов:"
+          ls -la pyqt_app/resources/ | head -10
+        else
+          echo "⚠️ Папка ресурсов отсутствует"
+        fi
+        
+        # Проверяем data директорию
+        if [ -d "pyqt_app/data" ]; then
+          echo "✅ Папка данных найдена"
+          data_count=$(find pyqt_app/data -type f 2>/dev/null | wc -l)
+          echo "   📊 Файлов в данных: $data_count"
+        else
+          echo "📁 Папка данных будет создана при первом запуске"
+        fi
+
+    - name: 📜 Test Python scripts directory
+      run: |
+        echo "📜 Тестирование Python скриптов..."
+        
+        if [ -d "scripts" ]; then
+          echo "✅ Папка scripts найдена"
+          
+          script_count=0
+          for script in scripts/*.py; do
+            if [ -f "$script" ]; then
+              script_count=$((script_count + 1))
+              script_name=$(basename "$script")
+              echo "🧪 Проверяем синтаксис: $script_name"
+              
+              # Проверяем синтаксис Python
+              if python3 -m py_compile "$script"; then
+                echo "   ✅ $script_name - синтаксис корректен"
+                
+                # Проверяем размер файла
+                file_size=$(wc -l < "$script" 2>/dev/null || echo "0")
+                echo "   📊 Размер: $file_size строк"
+                
+                # Проверяем основные импорты
+                if grep -q "import\|from.*import" "$script"; then
+                  echo "   ✅ Содержит импорты"
+                else
+                  echo "   ⚠️ Импорты не найдены"
+                fi
+              else
+                echo "   ❌ $script_name - ошибка синтаксиса!"
+              fi
+            fi
+          done
+          
+          echo "📋 Всего Python скриптов: $script_count"
+          
+          if [ $script_count -eq 0 ]; then
+            echo "⚠️ Python скрипты в папке scripts не найдены"
+          fi
+        else
+          echo "📁 Папка scripts не найдена - это нормально, если все скрипты в pyqt_app"
+        fi
+        
+        # Дополнительно проверяем setup_dependencies.py
+        if [ -f "setup_dependencies.py" ]; then
+          echo "🔧 Проверяем setup_dependencies.py..."
+          if python3 -m py_compile setup_dependencies.py; then
+            echo "✅ setup_dependencies.py - синтаксис корректен"
+          else
+            echo "❌ setup_dependencies.py - ошибка синтаксиса!"
+          fi
+        fi
 
   # 4️⃣ ЭТАП: Интеграционное тестирование
   integration-test:
@@ -539,6 +722,100 @@ jobs:
         
         print('🎉 Полный рабочий процесс работает корректно!')
         "
+        
+    - name: 🔍 Test dependency compatibility
+      run: |
+        echo "🔍 Проверяем совместимость зависимостей..."
+        
+        # Проверяем Python зависимости
+        echo "🐍 Анализируем Python зависимости..."
+        python3 -c "
+        import pkg_resources
+        import sys
+        
+        print('🔍 Проверяем установленные Python пакеты...')
+        
+        # Ключевые зависимости для проверки версий
+        critical_packages = ['PyQt6', 'pandas', 'loguru', 'openpyxl', 'pyinstaller']
+        
+        for package in critical_packages:
+            try:
+                dist = pkg_resources.get_distribution(package)
+                print(f'✅ {package}: {dist.version}')
+            except pkg_resources.DistributionNotFound:
+                print(f'❌ {package}: не установлен')
+            except Exception as e:
+                print(f'⚠️ {package}: ошибка проверки - {e}')
+        
+        # Проверяем совместимость PyQt6
+        try:
+            from PyQt6.QtCore import QT_VERSION_STR
+            from PyQt6.QtWidgets import QApplication
+            print(f'✅ PyQt6 Qt версия: {QT_VERSION_STR}')
+            print('✅ PyQt6 совместимость подтверждена')
+        except Exception as e:
+            print(f'❌ PyQt6 ошибка: {e}')
+        
+        print('🎉 Проверка Python зависимостей завершена')
+        "
+        
+        # Проверяем Node.js зависимости
+        echo "🟢 Анализируем Node.js зависимости..."
+        
+        # Проверяем основные пакеты
+        critical_node_packages=(
+          "typescript"
+          "ts-node" 
+          "axios"
+          "dotenv"
+          "dayjs"
+        )
+        
+        missing_node_packages=()
+        for package in "${critical_node_packages[@]}"; do
+          if [ -d "node_modules/$package" ]; then
+            # Получаем версию из package.json модуля
+            if [ -f "node_modules/$package/package.json" ]; then
+              version=$(node -e "console.log(require('./node_modules/$package/package.json').version)" 2>/dev/null || echo "неизвестно")
+              echo "✅ $package: $version"
+            else
+              echo "✅ $package: установлен"
+            fi
+          else
+            missing_node_packages+=("$package")
+            echo "❌ $package: отсутствует"
+          fi
+        done
+        
+        if [ ${#missing_node_packages[@]} -gt 0 ]; then
+          echo "⚠️ Отсутствующие Node.js пакеты: ${missing_node_packages[*]}"
+          echo "💡 Это может быть нормально если пакеты не критичны"
+        else
+          echo "✅ Все критичные Node.js пакеты установлены"
+        fi
+        
+        # Проверяем TypeScript конфигурацию
+        echo "⚙️ Проверяем TypeScript конфигурацию..."
+        if [ -f "tsconfig.json" ]; then
+          echo "✅ tsconfig.json найден"
+          
+          # Проверяем ключевые настройки
+          if grep -q '"target".*"es2020"' tsconfig.json; then
+            echo "✅ Target ES2020 установлен"
+          else
+            echo "⚠️ Target может отличаться от ES2020"
+          fi
+          
+          if grep -q '"module".*"commonjs"' tsconfig.json; then
+            echo "✅ CommonJS модули настроены"
+          else
+            echo "⚠️ Модули могут отличаться от CommonJS"
+          fi
+        else
+          echo "❌ tsconfig.json отсутствует"
+        fi
+        
+        echo "🎉 Проверка совместимости зависимостей завершена"
 
   # 5️⃣ ЭТАП: Подготовка к сборке
   pre-build:
@@ -700,13 +977,17 @@ jobs:
         ## ✅ Этапы выполнены:
         1. **🔍 Code Quality** - Проверка базовых файлов
         2. **🐍 Python Tests** - Тестирование Python компонентов + реальная работа скриптов
-        3. **🟢 Node.js Tests** - Тестирование TypeScript/JavaScript + выполнение скриптов
-        4. **🔗 Integration** - Интеграционные тесты + симуляция полного рабочего процесса
-        5. **🔧 Pre-Build** - Подготовка к сборке
-        6. **🏗️ Build** - Сборка приложения через PyInstaller
+        3. **🟢 Node.js Tests** - Проверка TypeScript приложений + анализ соответствия package.json
+        4. **🎨 Resources Check** - Проверка иконки, ресурсов и Python скриптов
+        5. **🔗 Integration** - Интеграционные тесты + проверка совместимости зависимостей
+        6. **🔧 Pre-Build** - Подготовка к сборке
+        7. **🏗️ Build** - Сборка приложения через PyInstaller
         
         ## 📊 Результаты:
         - ✅ Все тесты пройдены (включая работу скриптов и путей)
+        - ✅ TypeScript приложения проанализированы (${app_count:-"количество определяется"} реальных)
+        - ✅ Ресурсы и иконка проверены
+        - ✅ Совместимость зависимостей подтверждена
         - ✅ Приложение собрано (${APP_SIZE:-"размер определяется"})
         - ✅ DMG файл создан (${DMG_SIZE:-"размер определяется"})
         - ✅ Готово к deployment

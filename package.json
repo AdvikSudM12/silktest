@@ -4,16 +4,7 @@
   "main": "./src/app.js",
   "license": "MIT",
   "scripts": {
-    "start:mailing-old-users-documents": "ts-node ./src/apps/mailing-old-users-documents",
-    "start:user-documents-migration": "ts-node ./src/apps/user-documents-migration",
-    "start:parse-users-to-table": "ts-node ./src/apps/parse-users-to-table",
-    "start:get-links-for-update-permissions": "ts-node ./src/apps/get-links-for-update-permissions",
-    "start:tribal-fix-releases": "ts-node ./src/apps/tribal-fix-releases",
     "start:update-releases-shipment-statuses": "ts-node ./src/apps/update-releases-shipment-statuses",
-    "start:release-parser-1": "ts-node ./src/apps/release-parser-1",
-    "start:release-parser-2": "ts-node ./src/apps/release-parser-2",
-    "start:release-parser-3": "ts-node ./src/apps/release-parser-3",
-    "start:release-parser-4": "ts-node ./src/apps/release-parser-4",
     "start:release-parser-5": "ts-node ./src/apps/release-parser-5"
   },
   "dependencies": {
