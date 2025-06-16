@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
+import shutil
 from pathlib import Path
 
 block_cipher = None
@@ -8,6 +9,35 @@ block_cipher = None
 # Определяем базовую директорию (корень проекта)
 # В PyInstaller контексте используем os.getcwd() вместо __file__
 base_dir = Path(os.getcwd())
+
+# Находим Node.js runtime для встраивания
+def find_node_runtime():
+    """Находит Node.js исполняемые файлы для включения в bundle"""
+    node_files = {}
+    
+    # Ищем основные исполняемые файлы Node.js
+    node_executable = shutil.which('node')
+    npm_executable = shutil.which('npm')
+    npx_executable = shutil.which('npx')
+    
+    if node_executable:
+        node_files['node'] = node_executable
+        print(f"✅ Найден Node.js: {node_executable}")
+    else:
+        print("❌ Node.js не найден в системе")
+        
+    if npm_executable:
+        node_files['npm'] = npm_executable
+        print(f"✅ Найден npm: {npm_executable}")
+        
+    if npx_executable:
+        node_files['npx'] = npx_executable
+        print(f"✅ Найден npx: {npx_executable}")
+    
+    return node_files
+
+# Получаем Node.js runtime
+node_runtime = find_node_runtime()
 
 # Основной файл запуска
 python_files = [
@@ -34,6 +64,9 @@ datas = [
     (str(base_dir / 'node_modules' / 'convert-excel-to-json'), 'node_modules/convert-excel-to-json'),
     (str(base_dir / 'node_modules' / 'tsconfig-paths'), 'node_modules/tsconfig-paths'),
     
+    # Включаем .bin директорию с исполняемыми файлами npm пакетов
+    (str(base_dir / 'node_modules' / '.bin'), 'node_modules/.bin'),
+    
     # Конфигурационные файлы
     (str(base_dir / 'package.json'), '.'),
     (str(base_dir / 'tsconfig.json'), '.'),
@@ -44,6 +77,25 @@ datas = [
     # Шаблон конфигурации
     (str(base_dir / 'macos_build' / 'env_template.txt'), '.'),
 ]
+
+# Добавляем Node.js runtime в bundle (встраиваем полностью)
+if node_runtime:
+    print("🚀 Включаем Node.js runtime в app bundle:")
+    
+    # Создаем директорию node/bin в bundle
+    if 'node' in node_runtime:
+        datas.append((node_runtime['node'], 'node/bin/'))
+        print(f"   ✅ node -> node/bin/node")
+    
+    if 'npm' in node_runtime:
+        datas.append((node_runtime['npm'], 'node/bin/'))
+        print(f"   ✅ npm -> node/bin/npm")
+        
+    if 'npx' in node_runtime:
+        datas.append((node_runtime['npx'], 'node/bin/'))
+        print(f"   ✅ npx -> node/bin/npx")
+else:
+    print("⚠️ Node.js runtime не найден - приложение будет зависеть от системного Node.js")
 
 # Скрытые импорты Python модулей
 hiddenimports = [
@@ -151,4 +203,9 @@ app = BUNDLE(
             }
         ],
     },
-) 
+)
+
+# ВАЖНО: После сборки нужно сделать Node.js исполняемые файлы исполняемыми
+# chmod +x "GoSilk Staff.app/Contents/Resources/node/bin/*"
+print("💡 После сборки не забудьте выполнить:")
+print('   chmod +x "GoSilk Staff.app/Contents/Resources/node/bin/"*') 
