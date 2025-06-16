@@ -35,6 +35,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("GoSilk Staff - Система управления релизами")
         self.resize(900, 700)
         
+        # Устанавливаем иконку приложения (только для macOS)
+        import sys
+        if sys.platform == "darwin":
+            from pyqt_app.resources.icons import get_app_icon
+            self.setWindowIcon(get_app_icon())
+        
         # Устанавливаем светлый фон для всего приложения
         self.setStyleSheet("background-color: white;")
         

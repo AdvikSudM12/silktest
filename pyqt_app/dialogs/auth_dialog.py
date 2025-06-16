@@ -28,6 +28,12 @@ class AuthDialog(QDialog):
         self.setModal(True)
         self.setFixedSize(450, 350)
         
+        # Устанавливаем иконку приложения (только для macOS)
+        import sys
+        if sys.platform == "darwin":
+            from pyqt_app.resources.icons import get_app_icon
+            self.setWindowIcon(get_app_icon())
+        
         # Убираем кнопки закрытия окна
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint)
         

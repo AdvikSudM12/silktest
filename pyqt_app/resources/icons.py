@@ -83,4 +83,18 @@ def get_icon_from_base64(base64_data, size=24):
         pixmap = pixmap.scaled(size, size)
         
     # Создаем и возвращаем QIcon
-    return QIcon(pixmap) 
+    return QIcon(pixmap)
+
+def get_app_icon():
+    """Возвращает иконку приложения (только для macOS)"""
+    import sys
+    import os
+    
+    # Проверяем, что мы на macOS
+    if sys.platform == "darwin":
+        icon_path = "pyqt_app/resources/icon.icns"
+        if os.path.exists(icon_path):
+            return QIcon(icon_path)
+    
+    # Для других платформ возвращаем пустую иконку
+    return QIcon() 
