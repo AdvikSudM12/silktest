@@ -16,6 +16,17 @@ if __name__ == "__main__":
     # Установка стиля приложения
     app.setStyle("Fusion")
     
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec()) 
+    try:
+        # Создаем главное окно (авторизация происходит в конструкторе)
+        window = MainWindow()
+        
+        # Если окно создано успешно, показываем его
+        window.show()
+        sys.exit(app.exec())
+        
+    except SystemExit:
+        # Если авторизация была отменена, просто завершаем приложение
+        sys.exit(0)
+    except Exception as e:
+        print(f"Ошибка при запуске приложения: {e}")
+        sys.exit(1) 

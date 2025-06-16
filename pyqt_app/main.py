@@ -15,6 +15,9 @@ from pyqt_app.session_data_manager import session_manager
 # Импорт менеджера .env файлов для автообновления токенов
 from pyqt_app.env_manager import env_manager
 
+# Импорт менеджера авторизации
+from pyqt_app.auth_manager import auth_manager
+
 # DEBUG: импорт логгера для системы отладки - нужно будет удалить позже
 from pyqt_app.logger_config import get_logger
 debug_logger = get_logger("main_window")
@@ -22,7 +25,14 @@ debug_logger = get_logger("main_window")
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Silk Loader Application")
+        
+        # Проверяем авторизацию перед инициализацией интерфейса
+        if not auth_manager.require_authentication():
+            # Если авторизация отменена, закрываем приложение
+            debug_logger.info("🚪 Авторизация отменена, закрытие приложения")
+            sys.exit(0)
+            
+        self.setWindowTitle("GoSilk Staff - Система управления релизами")
         self.resize(900, 700)
         
         # Устанавливаем светлый фон для всего приложения
