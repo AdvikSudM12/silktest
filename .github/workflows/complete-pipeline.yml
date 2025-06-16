@@ -958,9 +958,13 @@ jobs:
         
         # Проверяем что получилось
         ls -la dist/
-        if [ -d "dist/GoSilkStaff.app" ]; then
+        
+        # Ищем любой .app файл (имя может варьироваться)
+        app_found=$(find dist/ -name "*.app" -type d | head -1)
+        if [ -n "$app_found" ]; then
           echo "✅ .app bundle создан успешно!"
-          du -sh dist/GoSilkStaff.app
+          echo "📁 Найден: $app_found"
+          du -sh "$app_found"
         else
           echo "❌ .app bundle не найден!"
           exit 1
@@ -969,6 +973,16 @@ jobs:
     - name: 📦 Create DMG
       run: |
         echo "📦 Создание DMG файла..."
+        
+        # Находим .app файл
+        app_found=$(find dist/ -name "*.app" -type d | head -1)
+        if [ -z "$app_found" ]; then
+          echo "❌ .app файл не найден для создания DMG"
+          exit 1
+        fi
+        
+        app_name=$(basename "$app_found" .app)
+        echo "🔧 Создаем DMG для: $app_found"
         
         # Устанавливаем create-dmg для создания красивого DMG
         brew install create-dmg
@@ -980,16 +994,16 @@ jobs:
           --window-pos 200 120 \
           --window-size 600 400 \
           --icon-size 100 \
-          --icon "GoSilkStaff.app" 175 120 \
-          --hide-extension "GoSilkStaff.app" \
+          --icon "$app_name.app" 175 120 \
+          --hide-extension "$app_name.app" \
           --app-drop-link 425 120 \
           "dist/GoSilkStaff.dmg" \
-          "dist/GoSilkStaff.app" || echo "⚠️ DMG создан с базовыми настройками"
+          "$app_found" || echo "⚠️ DMG создан с базовыми настройками"
           
         # Если create-dmg не сработал, создаем простой DMG
         if [ ! -f "dist/GoSilkStaff.dmg" ]; then
           echo "🔧 Создаем простой DMG..."
-          hdiutil create -volname "GoSilk Staff" -srcfolder "dist/GoSilkStaff.app" -ov -format UDZO "dist/GoSilkStaff.dmg"
+          hdiutil create -volname "GoSilk Staff" -srcfolder "$app_found" -ov -format UDZO "dist/GoSilkStaff.dmg"
         fi
         
         if [ -f "dist/GoSilkStaff.dmg" ]; then
@@ -1005,9 +1019,12 @@ jobs:
         echo "📊 Статистика сборки:"
         echo "===================="
         
-        if [ -d "dist/GoSilkStaff.app" ]; then
-          APP_SIZE=$(du -sh dist/GoSilkStaff.app | cut -f1)
+        # Находим .app файл
+        app_found=$(find dist/ -name "*.app" -type d | head -1)
+        if [ -n "$app_found" ]; then
+          APP_SIZE=$(du -sh "$app_found" | cut -f1)
           echo "📱 Размер .app: $APP_SIZE"
+          echo "📁 Файл: $(basename "$app_found")"
         fi
         
         if [ -f "dist/GoSilkStaff.dmg" ]; then
@@ -1067,13 +1084,15 @@ jobs:
         echo "📁 Содержимое артефакта:"
         ls -la
         
-        if [ -d "GoSilkStaff.app" ]; then
-          echo "✅ .app bundle найден"
+        # Ищем любой .app файл
+        app_found=$(find . -name "*.app" -type d | head -1)
+        if [ -n "$app_found" ]; then
+          echo "✅ .app bundle найден: $app_found"
           echo "📊 Размер .app bundle:"
-          du -sh GoSilkStaff.app
+          du -sh "$app_found"
           
           echo "📁 Структура .app bundle:"
-          ls -la GoSilkStaff.app/Contents/
+          ls -la "$app_found/Contents/" || echo "⚠️ Contents папка недоступна"
         else
           echo "❌ .app bundle не найден"
           exit 1
