@@ -95,7 +95,12 @@ class NodeRunner:
                 # Пробуем запустить ts-node через node напрямую
                 ts_node_path = self._find_ts_node()
                 if ts_node_path:
-                    cmd = [self.node_path, ts_node_path, 'index.ts']
+                    if ts_node_path.endswith('.js'):
+                        # Это главный файл ts-node модуля
+                        cmd = [self.node_path, ts_node_path, 'index.ts']
+                    else:
+                        # Это исполняемый файл ts-node
+                        cmd = [ts_node_path, 'index.ts']
                 else:
                     return {
                         'success': False,
@@ -149,11 +154,12 @@ class NodeRunner:
         Returns:
             Путь к ts-node или None
         """
-        # Пробуем найти в node_modules
+        # Пробуем найти в node_modules (основной модуль ts-node)
         if is_app_bundle():
-            ts_node_path = get_resource_path('node_modules/.bin/ts-node')
-            if ts_node_path.exists():
-                return str(ts_node_path)
+            # Ищем главный файл ts-node в установленном модуле
+            ts_node_main = get_resource_path('node_modules/ts-node/dist/bin.js')
+            if ts_node_main.exists():
+                return str(ts_node_main)
         
         # Пробуем системный ts-node
         system_ts_node = shutil.which('ts-node')

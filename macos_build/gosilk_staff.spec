@@ -65,7 +65,8 @@ datas = [
     (str(base_dir / 'node_modules' / 'tsconfig-paths'), 'node_modules/tsconfig-paths'),
     
     # Включаем .bin директорию с исполняемыми файлами npm пакетов
-    (str(base_dir / 'node_modules' / '.bin'), 'node_modules/.bin'),
+    # Убираем из-за конфликта с PyInstaller - исполняемые файлы уже включены через отдельные пакеты
+    # (str(base_dir / 'node_modules' / '.bin'), 'node_modules/.bin'),
     
     # Конфигурационные файлы
     (str(base_dir / 'package.json'), '.'),
@@ -103,13 +104,11 @@ hiddenimports = [
     'PyQt6.QtCore',
     'PyQt6.QtWidgets', 
     'PyQt6.QtGui',
-    'PyQt6.QtWebEngineWidgets',
     
     # Логирование и утилиты
     'loguru',
     'pandas',
     'openpyxl',
-    'xlsxwriter',
     
     # Стандартные библиотеки
     'pathlib',
