@@ -1062,6 +1062,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     needs: pre-build
     if: needs.pre-build.outputs.build-ready == 'true'
+    timeout-minutes: 60  # Увеличиваем таймаут до 60 минут
     
     strategy:
       matrix:
