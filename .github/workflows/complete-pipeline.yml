@@ -104,14 +104,14 @@ jobs:
       run: |
         echo "🗂️ Тестирование системы путей и ресурсов..."
         python3 -c "
-        from macos_build.resource_utils import is_app_bundle, get_app_data_dir, get_logs_dir, get_resources_dir
+        from macos_build.resource_utils import is_app_bundle, get_app_data_dir, get_logs_dir, get_resource_path
         import os
         
         print('🔍 Проверяем систему путей...')
         print(f'App bundle mode: {is_app_bundle()}')
         print(f'Data directory: {get_app_data_dir()}')
         print(f'Logs directory: {get_logs_dir()}')
-        print(f'Resources directory: {get_resources_dir()}')
+        print(f'Resource path example: {get_resource_path(\"test.txt\")}')
         
         # Проверяем что директории создаются
         data_dir = get_app_data_dir()
