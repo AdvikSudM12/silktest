@@ -550,7 +550,7 @@ const showFinalReport = (stats: UploadStats) => {
       log(`📊 Уже загружено релизов: ${alreadyUploaded}`, 'info')
       log(`📊 Уже загружено треков: ${processedTracks}`, 'info')
     } else {
-      log('Начинаем загрузку релизов...', 'info')
+    log('Начинаем загрузку релизов...', 'info')
     }
 
     // Загрузка релизов

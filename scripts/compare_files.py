@@ -350,10 +350,10 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             differences = find_char_differences(str(track_name), str(closest_track)) if closest_track else 'Файл не найден'
             
             result_entry = {
-                'Тип файла': 'Трек',
-                'Название в Excel': track_name,
-                'Найден в папке': closest_track if closest_track else 'Не найден',
-                'Ближайшее совпадение': closest_track if closest_track else '',
+                    'Тип файла': 'Трек',
+                    'Название в Excel': track_name,
+                    'Найден в папке': closest_track if closest_track else 'Не найден',
+                    'Ближайшее совпадение': closest_track if closest_track else '',
                 'Процент сходства': round(track_similarity, 2) if track_similarity > 0 else 0,
                 'Различия': differences,
                 'Статус': 'Точное соответствие' if track_similarity == 100 else 
@@ -407,10 +407,10 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             differences = find_char_differences(str(cover_name), str(closest_cover)) if closest_cover else 'Файл не найден'
             
             result_entry = {
-                'Тип файла': 'Обложка',
-                'Название в Excel': cover_name,
-                'Найден в папке': closest_cover if closest_cover else 'Не найден',
-                'Ближайшее совпадение': closest_cover if closest_cover else '',
+                    'Тип файла': 'Обложка',
+                    'Название в Excel': cover_name,
+                    'Найден в папке': closest_cover if closest_cover else 'Не найден',
+                    'Ближайшее совпадение': closest_cover if closest_cover else '',
                 'Процент сходства': round(cover_similarity, 2) if cover_similarity > 0 else 0,
                 'Различия': differences,
                 'Статус': 'Точное соответствие' if cover_similarity == 100 else 
@@ -419,7 +419,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
             }
             
             all_results.append(result_entry)
-            
+
             # Добавляем в errors_only только если есть проблемы
             if cover_similarity < 100:
                 errors_only.append(result_entry)
@@ -617,7 +617,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
         with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
             # Лист 1: Все файлы (теперь первый)
             all_results_df.to_excel(writer, index=False, sheet_name='Все файлы')
-            
+        
             # Лист 2: Только ошибки (теперь второй)
             errors_only_df.to_excel(writer, index=False, sheet_name='Только ошибки')
             
