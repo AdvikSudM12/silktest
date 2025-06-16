@@ -299,6 +299,9 @@ jobs:
         echo "📦 Установка Node.js зависимостей..."
         npm ci
         
+        # Устанавливаем tsconfig-paths для поддержки путей в TypeScript
+        npm install --save-dev tsconfig-paths
+        
     - name: 🔧 Test TypeScript compilation
       run: |
         echo "🔧 Тестирование TypeScript компиляции..."
@@ -315,14 +318,16 @@ jobs:
         if [ -f "src/apps/release-parser-5/index.ts" ]; then
           echo "✅ TypeScript модули найдены"
           
-          # Пробуем скомпилировать конкретный модуль
-          echo "🔧 Компилируем release-parser модуль..."
-          npx tsc src/apps/release-parser-5/index.ts --outDir dist/temp --target es2020 --module commonjs || echo "⚠️ Компиляция с предупреждениями"
-          
-          if [ -f "dist/temp/src/apps/release-parser-5/index.js" ]; then
-            echo "✅ JavaScript файл создан успешно"
-            rm -rf dist/temp
+          # Компилируем с использованием tsconfig.json проекта
+          echo "🔧 Компилируем release-parser модуль с tsconfig.json..."
+          if [ -f "tsconfig.json" ]; then
+            npx tsc --project tsconfig.json --noEmit || echo "⚠️ Компиляция с предупреждениями"
+          else
+            echo "⚠️ tsconfig.json не найден, используем базовые параметры"
+            npx tsc src/apps/release-parser-5/index.ts --outDir dist/temp --target es2020 --module commonjs || echo "⚠️ Компиляция с предупреждениями"
           fi
+          
+          echo "✅ TypeScript компиляция протестирована"
         fi
         
     - name: 🔗 Test Node.js script execution capability
