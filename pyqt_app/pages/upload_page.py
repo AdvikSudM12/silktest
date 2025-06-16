@@ -467,27 +467,8 @@ class UploadPage(BasePage):
         action_buttons_layout.setSpacing(20)
         
         # Кнопка загрузки файлов
-        upload_button = QPushButton("ЗАГРУЗИТЬ ФАЙЛЫ")
-        upload_button.setStyleSheet("""
-            QPushButton {
-                background-color: #19c790;
-                color: white;
-                border-radius: 15px;
-                padding: 15px 25px;
-                font-weight: bold;
-                border: 1px solid #17b683;
-                border-right: 4px solid #149e72;
-                border-bottom: 4px solid #149e72;
-            }
-            QPushButton:hover {
-                background-color: #17b683;
-            }
-            QPushButton:pressed {
-                background-color: #149e72;
-            }
-        """)
-        upload_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        upload_button.clicked.connect(self.upload_files)
+        self.upload_button = QPushButton("ЗАГРУЗИТЬ ФАЙЛЫ")
+        self.upload_button.clicked.connect(self.upload_files)
         
         # Кнопка продолжения загрузки
         continue_button = QPushButton("ПРОДОЛЖИТЬ ЗАГРУЗКУ")
@@ -536,9 +517,12 @@ class UploadPage(BasePage):
         update_status_button.clicked.connect(self.update_releases_statuses)
         
         # Добавляем кнопки в контейнер
-        action_buttons_layout.addWidget(upload_button)
+        action_buttons_layout.addWidget(self.upload_button)
         action_buttons_layout.addWidget(continue_button)
         action_buttons_layout.addWidget(update_status_button)
+        
+        # Инициализируем кнопку загрузки в неактивном состоянии
+        self.disable_upload_button()
         
         container_layout.addWidget(action_buttons_container)
         
@@ -828,6 +812,59 @@ class UploadPage(BasePage):
         self.progress_container.setVisible(False)
         debug_logger.debug("📊 Прогресс скрыт")
 
+    def get_disabled_upload_button_style(self):
+        """Возвращает стиль для неактивной кнопки загрузки"""
+        return """
+            QPushButton {
+                background-color: #cccccc;
+                color: #666666;
+                border-radius: 15px;
+                padding: 15px 25px;
+                font-weight: bold;
+                border: 1px solid #aaaaaa;
+                border-right: 4px solid #999999;
+                border-bottom: 4px solid #999999;
+            }
+            QPushButton:hover {
+                background-color: #cccccc;
+            }
+        """
+
+    def get_enabled_upload_button_style(self):
+        """Возвращает стиль для активной кнопки загрузки"""
+        return """
+            QPushButton {
+                background-color: #19c790;
+                color: white;
+                border-radius: 15px;
+                padding: 15px 25px;
+                font-weight: bold;
+                border: 1px solid #17b683;
+                border-right: 4px solid #149e72;
+                border-bottom: 4px solid #149e72;
+            }
+            QPushButton:hover {
+                background-color: #17b683;
+            }
+            QPushButton:pressed {
+                background-color: #149e72;
+            }
+        """
+
+    def disable_upload_button(self):
+        """Делает кнопку загрузки неактивной (серой)"""
+        self.upload_button.setEnabled(False)
+        self.upload_button.setStyleSheet(self.get_disabled_upload_button_style())
+        self.upload_button.setCursor(Qt.CursorShape.ForbiddenCursor)
+        debug_logger.debug("🔒 Кнопка загрузки деактивирована")
+
+    def enable_upload_button(self):
+        """Делает кнопку загрузки активной (зеленой)"""
+        self.upload_button.setEnabled(True)
+        self.upload_button.setStyleSheet(self.get_enabled_upload_button_style())
+        self.upload_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        debug_logger.debug("🔓 Кнопка загрузки активирована")
+
     def check_files(self):
         """Проверка файлов в выбранной директории с использованием интегрированных скриптов"""
         debug_logger.info("🔍 Началась проверка файлов")
@@ -882,7 +919,8 @@ class UploadPage(BasePage):
                     
                     if error_count == 0:
                         debug_logger.success("🎉 Нет ошибок - все файлы соответствуют")
-                        # Нет ошибок - все файлы соответствуют
+                        # Нет ошибок - все файлы соответствуют, активируем кнопку загрузки
+                        self.enable_upload_button()
                         self.show_status('success', result['message'])
                         
                         # ИСПРАВЛЕНИЕ: добавляем отсутствующие вызовы
@@ -912,7 +950,9 @@ class UploadPage(BasePage):
                         
                     else:
                         debug_logger.warning(f"⚠️ Найдены ошибки: {error_count}")
-                        # Есть ошибки - показываем детали
+                        # Есть ошибки - кнопка загрузки остается неактивной
+                        self.disable_upload_button()
+                        # Показываем детали
                         moved_count = excel_result.get('moved_count', 0)
                         results_file = comparison_result.get('results_file', '')
                         
@@ -965,7 +1005,8 @@ class UploadPage(BasePage):
                     
             else:
                 debug_logger.error("❌ Ошибка в выполнении workflow")
-                # Ошибка в выполнении workflow
+                # Ошибка в выполнении workflow - кнопка загрузки остается неактивной
+                self.disable_upload_button()
                 error_stage = result.get('stage', 'unknown')
                 error_message = f"Ошибка на этапе '{error_stage}': {result['message']}"
                 
@@ -983,6 +1024,8 @@ class UploadPage(BasePage):
                 
         except Exception as e:
             debug_logger.critical(f"💥 КРИТИЧЕСКАЯ ОШИБКА: {str(e)}")
+            # Критическая ошибка - кнопка загрузки остается неактивной
+            self.disable_upload_button()
             error_message = f"Неожиданная ошибка при проверке файлов: {str(e)}"
             self.show_status('error', error_message)
             

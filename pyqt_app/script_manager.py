@@ -167,43 +167,24 @@ class ScriptManager:
                 'stage': 'comparison'
             }
         
-        # Проверяем, есть ли ошибки для обработки
+        # Проверяем количество ошибок
         error_count = comparison_result.get('error_count', 0)
-        debug_logger.info(f"📈 Найдено ошибок для обработки: {error_count}")
+        debug_logger.info(f"📈 Найдено ошибок: {error_count}")
+        
+        # Workflow завершен успешно - compare_files.py уже создал полный отчет
+        debug_logger.success("🎊 Полный workflow завершен успешно!")
         
         if error_count == 0:
-            debug_logger.success("🎉 Нет ошибок - workflow завершен успешно")
-            return {
-                'success': True,
-                'message': "Все файлы соответствуют записям в Excel. Обработка ошибок не требуется.",
-                'stage': 'completed',
-                'comparison_result': comparison_result
-            }
+            message = "Все файлы соответствуют записям в Excel."
+        else:
+            message = f"Проверка завершена. Найдено {error_count} файлов с ошибками."
         
-        # Этап 2: Обработка ошибок в Excel
-        debug_logger.info("📝 Этап 2: Обработка ошибок в Excel")
-        results_file = comparison_result.get('results_file')
-        debug_logger.debug(f"📄 Файл результатов: {results_file}")
-        
-        excel_result = self.run_excel_processing(results_file)
-        debug_logger.debug(f"📊 Результат обработки Excel: {excel_result.get('success', False)}")
-        
-        if not excel_result['success']:
-            debug_logger.error(f"❌ Ошибка обработки Excel: {excel_result['message']}")
-            return {
-                'success': False,
-                'message': f"Ошибка на этапе обработки Excel: {excel_result['message']}",
-                'stage': 'excel_processing',
-                'comparison_result': comparison_result
-            }
-        
-        debug_logger.success("🎊 Полный workflow завершен успешно!")
         return {
             'success': True,
-            'message': f"Workflow выполнен успешно! {comparison_result['message']} {excel_result['message']}",
+            'message': message,
             'stage': 'completed',
             'comparison_result': comparison_result,
-            'excel_result': excel_result
+            'excel_result': {'moved_count': 0}  # Заглушка для совместимости
         }
     
     def load_script(self, script_name: str) -> Optional[Any]:
