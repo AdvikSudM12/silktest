@@ -55,6 +55,7 @@ class UploadPage(BasePage):
         self.directory_path = None
         self.setup_ui()
         self.load_saved_paths()
+        self.check_interrupted_upload()
         
     def setup_ui(self):
         """Настройка элементов интерфейса страницы загрузки"""
@@ -471,8 +472,8 @@ class UploadPage(BasePage):
         self.upload_button.clicked.connect(self.upload_files)
         
         # Кнопка продолжения загрузки
-        continue_button = QPushButton("ПРОДОЛЖИТЬ ЗАГРУЗКУ")
-        continue_button.setStyleSheet("""
+        self.continue_button = QPushButton("ПРОДОЛЖИТЬ ЗАГРУЗКУ")
+        self.continue_button.setStyleSheet("""
             QPushButton {
                 background-color: #f7a440;
                 color: white;
@@ -490,8 +491,11 @@ class UploadPage(BasePage):
                 background-color: #d68b31;
             }
         """)
-        continue_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        continue_button.clicked.connect(self.continue_upload)
+        self.continue_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.continue_button.clicked.connect(self.continue_upload)
+        
+        # По умолчанию скрываем кнопку продолжения загрузки
+        self.continue_button.setVisible(False)
         
         # Кнопка обновления статусов релизов
         update_status_button = QPushButton("ОТПРАВИТЬ НА FTP")
@@ -518,7 +522,7 @@ class UploadPage(BasePage):
         
         # Добавляем кнопки в контейнер
         action_buttons_layout.addWidget(self.upload_button)
-        action_buttons_layout.addWidget(continue_button)
+        action_buttons_layout.addWidget(self.continue_button)
         action_buttons_layout.addWidget(update_status_button)
         
         # Инициализируем кнопку загрузки в неактивном состоянии
@@ -1150,6 +1154,38 @@ class UploadPage(BasePage):
                     
         except Exception as e:
             debug_logger.error(f"❌ Ошибка при загрузке путей: {e}")
+
+    def check_interrupted_upload(self):
+        """Проверяет наличие прерванной загрузки и показывает кнопку продолжения"""
+        try:
+            debug_logger.info("🔍 Проверяем наличие прерванной загрузки")
+            
+            if session_manager.has_interrupted_upload():
+                upload_state = session_manager.get_upload_state()
+                if upload_state:
+                    last_index = upload_state.get("last_processed_index", 0)
+                    total_releases = upload_state.get("total_releases", 0)
+                    
+                    debug_logger.info(f"📋 Найдена прерванная загрузка: {last_index}/{total_releases}")
+                    
+                    # Показываем кнопку продолжения загрузки
+                    self.continue_button.setVisible(True)
+                    
+                    # Обновляем текст кнопки с информацией о прогрессе
+                    remaining = total_releases - last_index - 1
+                    self.continue_button.setText(f"ПРОДОЛЖИТЬ ЗАГРУЗКУ ({remaining} осталось)")
+                    
+                    # Показываем информационный статус
+                    self.show_status('info', f"Найдена прерванная загрузка. Обработано {last_index + 1} из {total_releases} релизов.")
+                    
+                    debug_logger.success("✅ Кнопка продолжения загрузки активирована")
+            else:
+                debug_logger.info("📭 Прерванная загрузка не найдена")
+                self.continue_button.setVisible(False)
+                
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка при проверке прерванной загрузки: {e}")
+            self.continue_button.setVisible(False)
     
     def load_directory_files(self, directory):
         """Загрузка файлов из указанной директории"""
@@ -1203,6 +1239,13 @@ class UploadPage(BasePage):
         debug_logger.info(f"📁 Директория: {self.directory_path}")
         
         try:
+            # Очищаем состояние предыдущей загрузки при начале новой
+            session_manager.clear_upload_state()
+            debug_logger.info("🗑️ Состояние предыдущей загрузки очищено")
+            
+            # Скрываем кнопку продолжения загрузки
+            self.continue_button.setVisible(False)
+            
             # Импортируем ScriptManager
             from pyqt_app.script_manager import ScriptManager
             
@@ -1256,9 +1299,30 @@ class UploadPage(BasePage):
         if success:
             debug_logger.success("🎉 Загрузка релизов завершена успешно!")
             self.show_status('success', message)
+            
+            # Очищаем состояние загрузки при успешном завершении
+            session_manager.clear_upload_state()
+            self.continue_button.setVisible(False)
+            debug_logger.info("🗑️ Состояние загрузки очищено после успешного завершения")
         else:
             debug_logger.error(f"❌ Ошибка загрузки: {message}")
             self.show_status('error', f"Ошибка: {message}")
+            
+            # При ошибке проверяем есть ли прерванная загрузка для продолжения
+            if session_manager.has_interrupted_upload():
+                upload_state = session_manager.get_upload_state()
+                if upload_state:
+                    last_index = upload_state.get("last_processed_index", 0)
+                    total_releases = upload_state.get("total_releases", 0)
+                    remaining = total_releases - last_index - 1
+                    
+                    # Показываем кнопку продолжения загрузки
+                    self.continue_button.setVisible(True)
+                    self.continue_button.setText(f"ПРОДОЛЖИТЬ ЗАГРУЗКУ ({remaining} осталось)")
+                    
+                    debug_logger.info(f"📋 Кнопка продолжения активирована: {remaining} релизов осталось")
+            else:
+                debug_logger.info("📋 Состояние загрузки не найдено")
             
         # Очищаем ссылки на воркер
         if hasattr(self, 'upload_worker'):
@@ -1266,20 +1330,82 @@ class UploadPage(BasePage):
             delattr(self, 'upload_worker')
     
     def continue_upload(self):
-        """Продолжение загрузки файлов"""
-        # Показываем статус загрузки
-        self.show_status('loading', "Продолжение загрузки, пожалуйста подождите...")
+        """Продолжение загрузки файлов с места прерывания"""
+        debug_logger.info("🔄 Начинаем продолжение загрузки файлов")
         
-        # Здесь будет логика продолжения загрузки
-        from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.information(
-            self,
-            "Продолжение загрузки",
-            "Продолжение загрузки файлов..."
-        )
-        
-        # Для демонстрации - показываем информационный статус
-        self.show_status('info', "Продолжение загрузки. Обработано 50% файлов...")
+        try:
+            # Получаем состояние прерванной загрузки
+            upload_state = session_manager.get_upload_state()
+            if not upload_state:
+                debug_logger.error("❌ Не найдено состояние прерванной загрузки")
+                self.show_status('error', "Не найдено состояние прерванной загрузки")
+                return
+            
+            last_index = upload_state.get("last_processed_index", 0)
+            total_releases = upload_state.get("total_releases", 0)
+            
+            debug_logger.info(f"📋 Продолжаем с релиза {last_index + 1} из {total_releases}")
+            
+            # Проверяем наличие необходимых данных
+            excel_path = upload_state.get("excel_path", "")
+            directory_path = upload_state.get("directory_path", "")
+            
+            if not excel_path or not directory_path:
+                debug_logger.error("❌ Не найдены пути в состоянии загрузки")
+                self.show_status('error', "Не найдены пути для продолжения загрузки")
+                return
+            
+            # Обновляем текущие пути
+            self.excel_file_path = excel_path
+            self.directory_path = directory_path
+            
+            debug_logger.info(f"📄 Excel файл: {excel_path}")
+            debug_logger.info(f"📁 Директория: {directory_path}")
+            
+            # Импортируем ScriptManager
+            from pyqt_app.script_manager import ScriptManager
+            
+            # Создаем экземпляр менеджера скриптов
+            script_manager = ScriptManager()
+            debug_logger.info("📦 ScriptManager инициализирован для продолжения")
+            
+            # Создаем и настраиваем воркер для продолжения загрузки
+            self.upload_worker = UploadWorker(script_manager, initial_iteration=last_index + 1)
+            
+            # Создаем и показываем диалог прогресса
+            self.progress_dialog = UploadProgressDialog(self)
+            
+            # Подключаем сигналы воркера к диалогу
+            self.upload_worker.progress_updated.connect(self.progress_dialog.update_progress)
+            self.upload_worker.progress_percent.connect(self.progress_dialog.update_progress_percent)
+            self.upload_worker.stage_changed.connect(self.progress_dialog.update_stage)
+            self.upload_worker.finished.connect(self.on_upload_finished)
+            self.upload_worker.error_occurred.connect(self.progress_dialog.on_error)
+            
+            # Подключаем сигнал отмены от диалога к воркеру
+            self.progress_dialog.cancel_requested.connect(self.upload_worker.cancel)
+            
+            # Скрываем кнопку продолжения загрузки
+            self.continue_button.setVisible(False)
+            
+            # Запускаем воркер
+            self.upload_worker.start()
+            
+            # Показываем диалог прогресса
+            self.progress_dialog.show()
+            
+            debug_logger.info("🔄 Продолжение загрузки запущено")
+            
+        except Exception as e:
+            debug_logger.critical(f"💥 Критическая ошибка при продолжении загрузки: {str(e)}")
+            
+            # Показываем диалог с критической ошибкой
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Критическая ошибка",
+                f"💥 Произошла критическая ошибка при продолжении загрузки:\n{str(e)}\n\nОбратитесь к разработчику."
+            )
     
     def offer_save_results_file(self, source_file: str, error_count: int, moved_count: int):
         """

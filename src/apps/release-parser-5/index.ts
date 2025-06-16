@@ -41,6 +41,85 @@ const log = (message: string, type: 'info' | 'success' | 'error' | 'warning' = '
   console.log(`[${timestamp}] ${icons[type]} ${message}`)
 }
 
+// Функции для управления состоянием загрузки
+const saveUploadState = (lastProcessedIndex: number, totalReleases: number, excelPath: string, filesDirectory: string): void => {
+  try {
+    const projectRoot = findProjectRoot()
+    const uploadStateFile = path.join(projectRoot, 'pyqt_app', 'data', 'upload_state.json')
+    
+    const uploadState = {
+      timestamp: new Date().toISOString(),
+      last_processed_index: lastProcessedIndex,
+      total_releases: totalReleases,
+      excel_path: excelPath,
+      directory_path: filesDirectory,
+      is_interrupted: true
+    }
+    
+    fs.writeFileSync(uploadStateFile, JSON.stringify(uploadState, null, 2), 'utf-8')
+    // lastProcessedIndex - это индекс (0-based), поэтому количество обработанных = lastProcessedIndex + 1
+    const processedCount = lastProcessedIndex + 1
+    log(`💾 Состояние загрузки сохранено: ${processedCount}/${totalReleases}`, 'info')
+  } catch (error) {
+    log(`❌ Ошибка сохранения состояния загрузки: ${error}`, 'error')
+  }
+}
+
+const clearUploadState = (): void => {
+  try {
+    const projectRoot = findProjectRoot()
+    const uploadStateFile = path.join(projectRoot, 'pyqt_app', 'data', 'upload_state.json')
+    
+    const emptyState = {
+      is_interrupted: false
+    }
+    
+    fs.writeFileSync(uploadStateFile, JSON.stringify(emptyState, null, 2), 'utf-8')
+    log('🗑️ Состояние загрузки очищено', 'info')
+  } catch (error) {
+    log(`❌ Ошибка очистки состояния загрузки: ${error}`, 'error')
+  }
+}
+
+const getInitialIteration = (): number => {
+  try {
+    // Проверяем аргументы командной строки на наличие --initial-iteration
+    const args = process.argv
+    const initialIterationIndex = args.findIndex(arg => arg === '--initial-iteration')
+    
+    if (initialIterationIndex !== -1 && initialIterationIndex + 1 < args.length) {
+      const initialIteration = parseInt(args[initialIterationIndex + 1], 10)
+      if (!isNaN(initialIteration) && initialIteration >= 0) {
+        log(`🔄 Продолжение загрузки с итерации: ${initialIteration}`, 'info')
+        return initialIteration
+      }
+    }
+    
+    log('🚀 Начинаем загрузку с начала', 'info')
+    return 0
+  } catch (error) {
+    log(`❌ Ошибка получения начальной итерации: ${error}`, 'error')
+    return 0
+  }
+}
+
+const getUploadStateFromFile = (): any => {
+  try {
+    const projectRoot = findProjectRoot()
+    const uploadStateFile = path.join(projectRoot, 'pyqt_app', 'data', 'upload_state.json')
+    
+    if (!fs.existsSync(uploadStateFile)) {
+      return null
+    }
+    
+    const uploadState = JSON.parse(fs.readFileSync(uploadStateFile, 'utf-8'))
+    return uploadState
+  } catch (error) {
+    log(`❌ Ошибка чтения состояния загрузки: ${error}`, 'error')
+    return null
+  }
+}
+
 // Функция для поиска корня проекта по наличию package.json
 const findProjectRoot = (): string => {
   let currentDir = __dirname
@@ -449,7 +528,30 @@ const showFinalReport = (stats: UploadStats) => {
       log('Продолжаем загрузку...', 'warning')
     }
 
-    log('Начинаем загрузку релизов...', 'info')
+    // Получаем начальную итерацию (для продолжения загрузки)
+    const initialIteration = getInitialIteration()
+    
+    // Корректируем статистику при продолжении загрузки
+    if (initialIteration > 0) {
+      // При продолжении загрузки учитываем уже загруженные релизы
+      // last_processed_index теперь означает индекс последнего УСПЕШНО загруженного релиза
+      // поэтому количество загруженных релизов = last_processed_index + 1
+      const uploadState = getUploadStateFromFile()
+      const lastProcessedIndex = uploadState?.last_processed_index ?? -1
+      const alreadyUploaded = lastProcessedIndex + 1
+      
+      stats.successfulUploads = alreadyUploaded
+      
+      // Также учитываем уже загруженные треки
+      const processedTracks = releasesData.slice(0, alreadyUploaded).reduce((sum, release) => sum + (release?.tracks?.length || 0), 0)
+      stats.successfulTracks = processedTracks
+      
+      log(`🔄 Продолжаем загрузку с релиза ${initialIteration + 1} из ${stats.totalReleases}`, 'info')
+      log(`📊 Уже загружено релизов: ${alreadyUploaded}`, 'info')
+      log(`📊 Уже загружено треков: ${processedTracks}`, 'info')
+    } else {
+      log('Начинаем загрузку релизов...', 'info')
+    }
 
     // Загрузка релизов
     await tableFlowIterations(
@@ -500,6 +602,9 @@ const showFinalReport = (stats: UploadStats) => {
           stats.successfulUploads++
           log(`Релиз успешно загружен: ${data.name}`, 'success')
 
+          // Сохраняем состояние ТОЛЬКО после успешной загрузки релиза
+          saveUploadState(iteration, stats.totalReleases, excelPath, filesDirectory)
+
         } catch (error: any) {
           stats.failedUploads++
           log(`❌ Ошибка загрузки релиза ${data.name}:`, 'error')
@@ -520,13 +625,23 @@ const showFinalReport = (stats: UploadStats) => {
           } else if (error.response?.status === 422) {
             log('💡 Проблема с валидацией данных', 'warning')
           }
+          
+          // НЕ сохраняем состояние при ошибке - релиз не загружен
+          // При продолжении загрузки повторим эту итерацию
+          
+          // Прерываем выполнение при критических ошибках
+          throw error
         }
       },
-      { iterations: stats.totalReleases, interval: 1000 }
+      { initialIteration, iterations: stats.totalReleases, interval: 1000 }
     )
 
     stats.endTime = new Date()
     log('🎉 ЗАГРУЗКА РЕЛИЗОВ ЗАВЕРШЕНА', 'success')
+    
+    // Очищаем состояние загрузки при успешном завершении
+    clearUploadState()
+    
     showFinalReport(stats)
 
   } catch (error: any) {

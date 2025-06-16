@@ -21,9 +21,10 @@ class UploadWorker(QThread):
     finished = pyqtSignal(bool, str)        # Завершение (success, message)
     error_occurred = pyqtSignal(str)        # Ошибка
     
-    def __init__(self, script_manager):
+    def __init__(self, script_manager, initial_iteration=0):
         super().__init__()
         self.script_manager = script_manager
+        self.initial_iteration = initial_iteration
         self.is_cancelled = False
         
     def cancel(self):
@@ -140,6 +141,11 @@ class UploadWorker(QThread):
                 cmd = [npx_path, 'ts-node', 'index.ts']
             else:
                 cmd = ['cmd', '/c', 'npx', 'ts-node', 'index.ts']
+            
+            # Добавляем параметр initial_iteration если нужно продолжить загрузку
+            if self.initial_iteration > 0:
+                cmd.extend(['--initial-iteration', str(self.initial_iteration)])
+                self.emit_progress(f"🔄 Продолжение загрузки с итерации: {self.initial_iteration}", "init")
                 
             self.emit_progress(f"🔧 Запуск команды: {' '.join(cmd)}", "init")
             

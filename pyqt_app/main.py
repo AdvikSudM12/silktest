@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
             debug_logger.info("🚪 Закрытие приложения - начинаем очистку данных")
             
             # Очищаем все сессионные данные и файлы results при закрытии приложения
-            success = session_manager.clear_all_session_data()
+            success = session_manager.clear_all_session_data_on_exit()
             
             if success:
                 debug_logger.success("✅ Все данные успешно очищены при закрытии приложения")

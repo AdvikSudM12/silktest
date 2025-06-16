@@ -25,6 +25,7 @@ class SessionDataManager:
         # Определяем путь к файлу сессионных данных
         self.data_dir = Path(__file__).parent / "data"
         self.session_file = self.data_dir / "session_analytics.json"
+        self.upload_state_file = self.data_dir / "upload_state.json"
         
         # Создаем директорию если её нет
         self.data_dir.mkdir(exist_ok=True)
@@ -32,9 +33,112 @@ class SessionDataManager:
         debug_logger.info(f"🚀 SessionDataManager инициализирован")
         debug_logger.debug(f"📁 Директория данных: {self.data_dir}")
         debug_logger.debug(f"📄 Файл сессии: {self.session_file}")
+        debug_logger.debug(f"📄 Файл состояния загрузки: {self.upload_state_file}")
         
         # Очищаем все старые сессионные данные при запуске (создает пустые файлы)
         self.clear_all_session_data()
+    
+    def save_upload_state(self, last_processed_index: int, total_releases: int, 
+                         excel_path: str = "", directory_path: str = "") -> bool:
+        """
+        Сохраняет состояние загрузки для возможности продолжения
+        
+        Args:
+            last_processed_index: Индекс последнего обработанного релиза (0-based)
+            total_releases: Общее количество релизов
+            excel_path: Путь к Excel файлу
+            directory_path: Путь к директории с файлами
+            
+        Returns:
+            True если сохранение успешно, False если ошибка
+        """
+        try:
+            debug_logger.info(f"💾 Сохраняем состояние загрузки: {last_processed_index}/{total_releases}")
+            
+            # Получаем пути из paths.json если не переданы
+            if not excel_path or not directory_path:
+                excel_path, directory_path = self._get_paths_from_config()
+            
+            upload_state = {
+                "timestamp": datetime.now().isoformat(),
+                "last_processed_index": last_processed_index,
+                "total_releases": total_releases,
+                "excel_path": excel_path,
+                "directory_path": directory_path,
+                "is_interrupted": True
+            }
+            
+            with open(self.upload_state_file, "w", encoding="utf-8") as f:
+                json.dump(upload_state, f, ensure_ascii=False, indent=2)
+            
+            debug_logger.success("✅ Состояние загрузки сохранено")
+            return True
+            
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка при сохранении состояния загрузки: {e}")
+            return False
+
+    def get_upload_state(self) -> Optional[Dict[str, Any]]:
+        """
+        Получает сохраненное состояние загрузки
+        
+        Returns:
+            Словарь с состоянием загрузки или None если данных нет
+        """
+        try:
+            if not self.upload_state_file.exists():
+                debug_logger.info("📭 Файл состояния загрузки не найден")
+                return None
+            
+            debug_logger.info("📖 Читаем состояние загрузки")
+            
+            with open(self.upload_state_file, "r", encoding="utf-8") as f:
+                upload_state = json.load(f)
+            
+            if not upload_state or not upload_state.get("is_interrupted", False):
+                debug_logger.info("📭 Нет прерванной загрузки")
+                return None
+            
+            debug_logger.success("✅ Найдено прерванное состояние загрузки")
+            debug_logger.debug(f"📊 Обработано: {upload_state.get('last_processed_index', 0)}/{upload_state.get('total_releases', 0)}")
+            
+            return upload_state
+            
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка при чтении состояния загрузки: {e}")
+            return None
+
+    def clear_upload_state(self) -> bool:
+        """
+        Очищает состояние загрузки (при успешном завершении или начале новой загрузки)
+        
+        Returns:
+            True если очистка успешна
+        """
+        try:
+            empty_state = {
+                "is_interrupted": False
+            }
+            
+            with open(self.upload_state_file, "w", encoding="utf-8") as f:
+                json.dump(empty_state, f, ensure_ascii=False, indent=2)
+            
+            debug_logger.info("🗑️ Состояние загрузки очищено")
+            return True
+            
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка при очистке состояния загрузки: {e}")
+            return False
+
+    def has_interrupted_upload(self) -> bool:
+        """
+        Проверяет есть ли прерванная загрузка
+        
+        Returns:
+            True если есть прерванная загрузка
+        """
+        upload_state = self.get_upload_state()
+        return upload_state is not None and upload_state.get("is_interrupted", False)
     
     def save_comparison_result(self, comparison_result: Dict[str, Any], 
                              excel_file_path: str = "", 
@@ -206,20 +310,53 @@ class SessionDataManager:
     
     def clear_all_session_data(self) -> bool:
         """
-        Очищает все сессионные данные (аналитика + пути + файлы results)
+        Очищает все сессионные данные при запуске приложения
         
         Returns:
             True если очистка успешна
         """
-        analytics_cleared = self.clear_session_data()
-        paths_cleared = self.clear_session_paths()
-        results_cleared = self.clear_results_files()
-        
-        if analytics_cleared and paths_cleared and results_cleared:
-            debug_logger.success("✅ Все сессионные данные и файлы results успешно очищены")
+        try:
+            # Очищаем основные сессионные данные
+            self.clear_session_data()
+            
+            # Очищаем пути
+            self.clear_session_paths()
+            
+            # НЕ очищаем состояние загрузки при запуске - оно может понадобиться для продолжения
+            # self.clear_upload_state()
+            
+            debug_logger.info("🗑️ Все сессионные данные очищены (кроме состояния загрузки)")
             return True
-        else:
-            debug_logger.warning("⚠️ Частичная очистка сессионных данных и файлов")
+            
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка при очистке всех сессионных данных: {e}")
+            return False
+
+    def clear_all_session_data_on_exit(self) -> bool:
+        """
+        Очищает все сессионные данные при закрытии приложения (включая состояние загрузки)
+        
+        Returns:
+            True если очистка успешна
+        """
+        try:
+            # Очищаем основные сессионные данные
+            self.clear_session_data()
+            
+            # Очищаем пути
+            self.clear_session_paths()
+            
+            # Очищаем файлы results
+            self.clear_results_files()
+            
+            # При закрытии приложения очищаем и состояние загрузки
+            self.clear_upload_state()
+            
+            debug_logger.info("🗑️ Все сессионные данные очищены при закрытии приложения")
+            return True
+            
+        except Exception as e:
+            debug_logger.error(f"❌ Ошибка при очистке всех сессионных данных при закрытии: {e}")
             return False
     
     def has_analytics_data(self) -> bool:
