@@ -89,8 +89,33 @@ if INCLUDE_ALL_NODE_MODULES:
     print("📦 Включаем ВСЕ Node.js модули (может быть медленно и занимать много места)...")
     node_modules_path = base_dir / 'node_modules'
     if node_modules_path.exists():
-        datas.append((str(node_modules_path), 'node_modules'))
-        print(f"   ✅ Включена вся папка node_modules")
+        # Включаем node_modules, но исключаем проблемные вложенные структуры
+        print("🔧 Копируем node_modules с исключением проблемных путей...")
+        
+        # Создаем безопасную копию node_modules без глубокой вложенности
+        import shutil
+        import tempfile
+        import os
+        
+        # Создаем временную директорию для "плоской" версии node_modules
+        temp_node_modules = base_dir / 'temp_node_modules'
+        if temp_node_modules.exists():
+            shutil.rmtree(temp_node_modules)
+        temp_node_modules.mkdir()
+        
+        # Копируем только первый уровень модулей
+        for item in node_modules_path.iterdir():
+            if item.is_dir() and not item.name.startswith('.'):
+                try:
+                    dest_path = temp_node_modules / item.name
+                    # Копируем только основную структуру, избегая глубокой вложенности
+                    shutil.copytree(item, dest_path, ignore=shutil.ignore_patterns('node_modules'))
+                    print(f"   ✅ Скопирован {item.name}")
+                except Exception as e:
+                    print(f"   ⚠️ Пропущен {item.name}: {e}")
+        
+        datas.append((str(temp_node_modules), 'node_modules'))
+        print(f"   ✅ Включена оптимизированная папка node_modules")
 else:
     # Автоматически добавляем только нужные Node.js модули
     print("📦 Определяем необходимые Node.js модули...")
@@ -292,6 +317,14 @@ app = BUNDLE(
         ],
     },
 )
+
+# Очищаем временную папку после сборки
+print("🧹 Очистка временных файлов...")
+temp_node_modules = base_dir / 'temp_node_modules'
+if temp_node_modules.exists():
+    import shutil
+    shutil.rmtree(temp_node_modules)
+    print("   ✅ Временная папка temp_node_modules удалена")
 
 # ВАЖНО: После сборки нужно сделать Node.js исполняемые файлы исполняемыми
 # chmod +x "GoSilk Staff.app/Contents/Resources/node/bin/*"
