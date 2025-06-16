@@ -513,7 +513,7 @@ class UploadPage(BasePage):
         continue_button.clicked.connect(self.continue_upload)
         
         # Кнопка обновления статусов релизов
-        update_status_button = QPushButton("ОБНОВИТЬ СТАТУСЫ")
+        update_status_button = QPushButton("ОТПРАВИТЬ НА FTP")
         update_status_button.setStyleSheet("""
             QPushButton {
                 background-color: #FF9800;
