@@ -189,7 +189,7 @@ class AuthDialog(QDialog):
     def check_password(self, password: str) -> bool:
         """Проверка пароля"""
         # Пока используем статичный пароль
-        correct_password = "silk2024"
+        correct_password = "13579"
         return password == correct_password
         
     def on_login_clicked(self):
