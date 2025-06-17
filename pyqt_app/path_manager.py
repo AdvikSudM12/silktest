@@ -212,6 +212,16 @@ def get_config_file_path(filename: str) -> Path:
     return get_file_in_data_dir(filename)
 
 
+def get_data_file_path(filename: str) -> Path:
+    """Получает путь к файлу в директории данных (alias для get_file_in_data_dir)"""
+    return get_file_in_data_dir(filename)
+
+
+def get_results_directory_path() -> Path:
+    """Получает путь к директории результатов (alias для get_results_directory)"""
+    return get_results_directory()
+
+
 # Диагностическая функция для отладки
 def get_paths_info() -> dict:
     """
