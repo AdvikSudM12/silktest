@@ -153,4 +153,95 @@ def get_node_executable():
         return str(node_path)
     else:
         # В режиме разработки используем системный Node.js
-        return 'node' 
+        return 'node'
+
+
+def get_results_dir() -> Path:
+    """
+    Получает директорию для результатов обработки (CSV, JSON, backup файлы)
+    
+    Returns:
+        Path к директории результатов
+    """
+    if is_app_bundle():
+        # Для app bundle используем подпапку в пользовательской директории
+        app_data_dir = get_app_data_dir()
+        results_dir = app_data_dir / 'results'
+    else:
+        # В режиме разработки используем локальную папку
+        results_dir = Path(__file__).parent.parent / 'results'
+    
+    # Создаем директорию если её нет
+    results_dir.mkdir(parents=True, exist_ok=True)
+    
+    return results_dir
+
+
+def get_config_file_path(filename: str) -> Path:
+    """
+    Получает путь к файлу конфигурации в data директории
+    
+    Args:
+        filename: Имя файла конфигурации (например, 'config.json')
+        
+    Returns:
+        Path к файлу конфигурации
+    """
+    data_dir = get_app_data_dir()
+    return data_dir / filename
+
+
+def get_script_path(script_name: str) -> Path:
+    """
+    Получает путь к скрипту в проекте
+    
+    Args:
+        script_name: Имя скрипта или относительный путь
+        
+    Returns:
+        Path к скрипту
+    """
+    if is_app_bundle():
+        # В app bundle скрипты находятся в Resources/
+        return get_resource_path(f'scripts/{script_name}')
+    else:
+        # В режиме разработки используем обычные пути
+        return Path(__file__).parent.parent / 'scripts' / script_name
+
+
+def ensure_data_file_exists(filename: str, default_content: str = "") -> Path:
+    """
+    Проверяет существование файла данных и создает его если необходимо
+    
+    Args:
+        filename: Имя файла
+        default_content: Содержимое по умолчанию для создания файла
+        
+    Returns:
+        Path к файлу
+    """
+    file_path = get_config_file_path(filename)
+    
+    if not file_path.exists():
+        file_path.write_text(default_content, encoding='utf-8')
+        print(f"✅ Создан файл данных: {file_path}")
+    
+    return file_path
+
+
+def get_paths_info() -> dict:
+    """
+    Получает информацию о всех используемых путях для диагностики
+    
+    Returns:
+        dict с информацией о путях
+    """
+    return {
+        'is_app_bundle': is_app_bundle(),
+        'app_data_dir': str(get_app_data_dir()),
+        'logs_dir': str(get_logs_dir()),
+        'results_dir': str(get_results_dir()),
+        'env_file': str(get_env_file_path()),
+        'executable': sys.executable,
+        'platform': sys.platform
+    } 

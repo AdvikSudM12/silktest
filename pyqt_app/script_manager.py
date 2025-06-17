@@ -93,7 +93,8 @@ class ScriptManager:
             debug_logger.success(f"✅ Скрипт {description} найден")
             
             # Проверяем наличие .env файла с токенами
-            env_file = os.path.join(self.root_dir, '.env')
+            from .path_manager import get_env_file_path
+            env_file = str(get_env_file_path())
             if not os.path.exists(env_file):
                 debug_logger.error("❌ Файл .env не найден")
                 return {
@@ -236,7 +237,8 @@ class ScriptManager:
         Returns:
             Словарь с путями или пустой словарь в случае ошибки
         """
-        paths_file = os.path.join(self.root_dir, 'pyqt_app', 'data', 'paths.json')
+        from .path_manager import get_config_file_path
+        paths_file = str(get_config_file_path('paths.json'))
         if os.path.exists(paths_file):
             try:
                 with open(paths_file, 'r', encoding='utf-8') as f:

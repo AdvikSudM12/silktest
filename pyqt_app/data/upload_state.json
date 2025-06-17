@@ -1,3 +1,8 @@
 {
-  "is_interrupted": false
+  "timestamp": "2025-06-17T21:26:02.073Z",
+  "last_processed_index": 0,
+  "total_releases": 4,
+  "excel_path": "C:/Users/romann/Downloads/relises/releases.xlsx",
+  "directory_path": "C:/Users/romann/Downloads/relises",
+  "is_interrupted": true
 }

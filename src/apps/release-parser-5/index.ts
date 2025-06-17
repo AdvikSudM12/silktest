@@ -3,6 +3,9 @@ require('dotenv').config()
 import fs from 'fs'
 import path from 'path'
 
+// ** Path Resolver Import
+import { pathResolver } from '../../configs/path-resolver'
+
 // ** Source code Imports
 import { getTableRows, upsertTableRow } from 'src/tools/table'
 import { tableFlowIterations  } from 'src/tools/flow'
@@ -44,8 +47,7 @@ const log = (message: string, type: 'info' | 'success' | 'error' | 'warning' = '
 // Функции для управления состоянием загрузки
 const saveUploadState = (lastProcessedIndex: number, totalReleases: number, excelPath: string, filesDirectory: string): void => {
   try {
-    const projectRoot = findProjectRoot()
-    const uploadStateFile = path.join(projectRoot, 'pyqt_app', 'data', 'upload_state.json')
+    const uploadStateFile = pathResolver.getConfigFilePath('upload_state.json')
     
     const uploadState = {
       timestamp: new Date().toISOString(),
@@ -67,8 +69,7 @@ const saveUploadState = (lastProcessedIndex: number, totalReleases: number, exce
 
 const clearUploadState = (): void => {
   try {
-    const projectRoot = findProjectRoot()
-    const uploadStateFile = path.join(projectRoot, 'pyqt_app', 'data', 'upload_state.json')
+    const uploadStateFile = pathResolver.getConfigFilePath('upload_state.json')
     
     const emptyState = {
       is_interrupted: false
@@ -105,8 +106,7 @@ const getInitialIteration = (): number => {
 
 const getUploadStateFromFile = (): any => {
   try {
-    const projectRoot = findProjectRoot()
-    const uploadStateFile = path.join(projectRoot, 'pyqt_app', 'data', 'upload_state.json')
+    const uploadStateFile = pathResolver.getConfigFilePath('upload_state.json')
     
     if (!fs.existsSync(uploadStateFile)) {
       return null
@@ -120,126 +120,81 @@ const getUploadStateFromFile = (): any => {
   }
 }
 
-// Функция для поиска корня проекта по наличию package.json
+// Функция для поиска корня проекта (УСТАРЕЛА - используем pathResolver)
 const findProjectRoot = (): string => {
-  let currentDir = __dirname
-  
-  // Ищем корень проекта по наличию package.json
-  while (currentDir !== path.dirname(currentDir)) {
-    if (fs.existsSync(path.join(currentDir, 'package.json'))) {
-      log(`🎯 Найден корень проекта: ${currentDir}`, 'success')
-      return currentDir
-    }
-    currentDir = path.dirname(currentDir)
-  }
-  
-  log('⚠️ Корень проекта не найден, используем __dirname', 'warning')
-  return __dirname // fallback
+  log('⚠️ findProjectRoot устарела, используйте pathResolver.projectRoot', 'warning')
+  return pathResolver.projectRoot
 }
 
-// Функция для получения путей из paths.json или стандартных путей
-const getPaths = (): PathsConfig => {
+// Функция для получения путей через pathResolver
+const getPaths = async (): Promise<PathsConfig> => {
   try {
-    log('Загрузка конфигурации путей...', 'info')
+    log('🔍 Загрузка конфигурации путей через pathResolver...', 'info')
     
-    // Диагностика путей
-    log(`🔍 Текущая рабочая директория: ${process.cwd()}`, 'info')
-    log(`🔍 __dirname: ${__dirname}`, 'info')
+    // Показываем диагностическую информацию
+    const diagnosticInfo = pathResolver.getDiagnosticInfo()
+    log(`📊 Режим работы: ${diagnosticInfo.mode}`, 'info')
+    log(`💻 Платформа: ${diagnosticInfo.platform}`, 'info')
+    log(`📁 Data directory: ${pathResolver.dataDirectory}`, 'info')
     
-    // Попробуем несколько вариантов путей к paths.json (ПОРТАТИВНОЕ РЕШЕНИЕ)
-    const projectRoot = findProjectRoot()
-    const possiblePaths = [
-      // 1. Через корень проекта (самый надежный способ)
-      path.join(projectRoot, 'pyqt_app', 'data', 'paths.json'),
-      // 2. Из текущей директории скрипта вверх к корню проекта
-      path.join(__dirname, '../../../../pyqt_app/data/paths.json'),
-      path.join(__dirname, '../../../pyqt_app/data/paths.json'),
-      // 3. Из рабочей директории
-      path.join(process.cwd(), 'pyqt_app/data/paths.json'),
-      path.join(process.cwd(), '../pyqt_app/data/paths.json'),
-      // 4. Относительные пути как fallback
-      '../../../pyqt_app/data/paths.json',
-      '../../../../pyqt_app/data/paths.json'
-    ]
+    // Проверяем валидность путей
+    const validation = pathResolver.validatePaths()
+    if (!validation.isValid) {
+      log('⚠️ Проблемы с путями:', 'warning')
+      validation.errors.forEach(error => log(`   - ${error}`, 'error'))
+    }
     
-    log('🔍 Проверяем возможные пути к paths.json:', 'info')
-    let pathsFile = null
+    // Читаем paths.json через pathResolver
+    const pathsFromConfig = await pathResolver.getPathsFromConfig()
     
-    for (const testPath of possiblePaths) {
-      const resolvedPath = path.resolve(testPath)
-      log(`   Проверяем: ${resolvedPath}`, 'info')
-      if (fs.existsSync(resolvedPath)) {
-        log(`   ✅ Найден!`, 'success')
-        pathsFile = resolvedPath
-        break
+    if (pathsFromConfig && pathsFromConfig.excelPath && pathsFromConfig.directoryPath) {
+      log('✅ Пути успешно загружены из paths.json', 'success')
+      log(`📄 Excel файл: ${pathsFromConfig.excelPath}`, 'info')
+      log(`📁 Директория файлов: ${pathsFromConfig.directoryPath}`, 'info')
+      
+      // Проверяем существование файлов
+      if (fs.existsSync(pathsFromConfig.excelPath)) {
+        log(`✅ Excel файл найден`, 'success')
       } else {
-        log(`   ❌ Не найден`, 'warning')
+        log(`❌ Excel файл не найден`, 'error')
+      }
+      
+      if (fs.existsSync(pathsFromConfig.directoryPath)) {
+        log(`✅ Директория файлов найдена`, 'success')
+      } else {
+        log(`❌ Директория файлов не найдена`, 'error')
+      }
+      
+      return {
+        excelPath: pathsFromConfig.excelPath,
+        filesDirectory: pathsFromConfig.directoryPath
       }
     }
     
-    if (pathsFile && fs.existsSync(pathsFile)) {
-      log(`📄 Читаем paths.json из: ${pathsFile}`, 'success')
-      const pathsData = JSON.parse(fs.readFileSync(pathsFile, 'utf-8'))
-      log(`📋 Содержимое paths.json: ${JSON.stringify(pathsData, null, 2)}`, 'info')
-      
-      const excelPath = pathsData.excel_file_path
-      const directoryPath = pathsData.directory_path
-      
-      if (excelPath && directoryPath) {
-        log('✅ Пути успешно загружены из paths.json', 'success')
-        log(`📄 Excel файл: ${excelPath}`, 'info')
-        log(`📁 Директория файлов: ${directoryPath}`, 'info')
-        
-        // Проверяем существование файлов по загруженным путям
-        log(`🔍 Проверяем существование Excel файла: ${excelPath}`, 'info')
-        if (fs.existsSync(excelPath)) {
-          log(`✅ Excel файл найден`, 'success')
-        } else {
-          log(`❌ Excel файл не найден по пути из paths.json`, 'error')
-        }
-        
-        log(`🔍 Проверяем существование директории: ${directoryPath}`, 'info')
-        if (fs.existsSync(directoryPath)) {
-          log(`✅ Директория найдена`, 'success')
-        } else {
-          log(`❌ Директория не найдена по пути из paths.json`, 'error')
-        }
-        
-        return {
-          excelPath: excelPath,
-          filesDirectory: directoryPath
-        }
-      } else {
-        log('❌ Пути в paths.json неполные', 'warning')
-        log(`   excel_file_path: ${excelPath || 'отсутствует'}`, 'warning')
-        log(`   directory_path: ${directoryPath || 'отсутствует'}`, 'warning')
-      }
-    } else {
-      log('❌ Файл paths.json не найден ни по одному из путей', 'warning')
-    }
+    // Если paths.json не найден или пуст, используем fallback
+    log('⚠️ Не удалось загрузить пути из paths.json, используем стандартные пути', 'warning')
+    
   } catch (error) {
     log(`❌ Ошибка чтения paths.json: ${error}`, 'error')
   }
   
-  // Стандартные пути для скрипта загрузки
+  // Стандартные fallback пути для скрипта загрузки через pathResolver
   log('⚠️ Используем стандартные пути для загрузки', 'warning')
   
-  // Определяем абсолютные пути к файлам скрипта
-  const defaultExcelPath = path.join(__dirname, 'files/releases.xlsx')
-  const defaultFilesDirectory = path.join(__dirname, 'files')
+  // Определяем абсолютные пути к файлам скрипта через pathResolver
+  const defaultExcelPath = path.join(pathResolver.projectRoot, 'src/apps/release-parser-5/files/releases.xlsx')
+  const defaultFilesDirectory = path.join(pathResolver.projectRoot, 'src/apps/release-parser-5/files')
   
   log(`📄 Excel файл: ${defaultExcelPath}`, 'info')
   log(`📁 Директория файлов: ${defaultFilesDirectory}`, 'info')
   
   // Проверяем существование стандартных файлов
-  log(`🔍 Проверяем существование стандартного Excel файла: ${defaultExcelPath}`, 'info')
   if (fs.existsSync(defaultExcelPath)) {
     log(`✅ Стандартный Excel файл найден`, 'success')
   } else {
     log(`❌ Стандартный Excel файл не найден`, 'error')
   }
   
-  log(`🔍 Проверяем существование стандартной директории: ${defaultFilesDirectory}`, 'info')
   if (fs.existsSync(defaultFilesDirectory)) {
     log(`✅ Стандартная директория найдена`, 'success')
   } else {
@@ -408,7 +363,7 @@ const showFinalReport = (stats: UploadStats) => {
     }
 
     // Получаем пути к файлам
-    const { excelPath, filesDirectory } = getPaths()
+    const { excelPath, filesDirectory } = await getPaths()
 
     // Проверяем существование файлов
     if (!fs.existsSync(excelPath)) {

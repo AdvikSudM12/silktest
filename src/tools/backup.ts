@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import { pathResolver } from '../configs/path-resolver'
 
 export const generateJSONBuckup = ({
   fileName = null,
@@ -7,7 +8,7 @@ export const generateJSONBuckup = ({
   fileName?: string | null
   data: any
 }) => {
-  const filePath = `src/backups/${fileName}.json`
+  const filePath = pathResolver.getResultsFilePath(`backups/${fileName}.json`)
 
   try {
     const stream = fs.createWriteStream(filePath)

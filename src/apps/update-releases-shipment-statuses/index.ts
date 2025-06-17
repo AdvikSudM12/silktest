@@ -3,6 +3,9 @@ require('dotenv').config()
 import fs from 'fs'
 import path from 'path'
 
+// ** Path Resolver Import
+import { pathResolver } from '../../configs/path-resolver'
+
 // ** Source code Imports
 import {
   getTableRows,
@@ -47,14 +50,14 @@ import apiConfig from 'src/configs/api'
 
   const iterations = releases.length
 
-  // Create backup (ПОРТАТИВНОЕ РЕШЕНИЕ)
-  const filesDir = path.join(__dirname, 'files')
-  const backupPath = path.join(filesDir, 'backup.json')
+  // Create backup через pathResolver
+  const backupPath = pathResolver.getResultsFilePath('update-releases-shipment-statuses/backup.json')
   
-  // Создаем директорию files если её нет
-  if (!fs.existsSync(filesDir)) {
-    fs.mkdirSync(filesDir, { recursive: true })
-    console.log('📁 Создана директория files')
+  // Создаем директорию если её нет
+  const backupDir = path.dirname(backupPath)
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true })
+    console.log('📁 Создана директория для backup')
   }
   
   fs.writeFile(backupPath, JSON.stringify(releases), (err) => {

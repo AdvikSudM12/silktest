@@ -110,6 +110,9 @@ datas = [
     (str(base_dir / 'pyqt_app' / 'resources'), 'pyqt_app/resources'),
     (str(base_dir / 'pyqt_app' / 'data'), 'pyqt_app/data'),
     
+    # macOS build утилиты (включая новый resource_utils.py)
+    (str(base_dir / 'macos_build' / 'resource_utils.py'), 'macos_build/'),
+    
     # Скомпилированный JavaScript из TypeScript
     (str(base_dir / 'src'), 'src'),
     
@@ -185,6 +188,20 @@ hiddenimports = pyqt6_submodules + [
     'loguru',
     'pandas',
     'openpyxl',
+    
+    # Новые модули path manager
+    'pyqt_app.path_manager',
+    'macos_build.resource_utils',
+    
+    # Обновленные диалоги и менеджеры
+    'pyqt_app.session_data_manager',
+    'pyqt_app.script_manager',
+    'pyqt_app.dialogs.logs_dialog',
+    'pyqt_app.workers.upload_worker',
+    'pyqt_app.workers.update_status_worker',
+    'pyqt_app.pages.upload_page',
+    'pyqt_app.pages.settings_page',
+    'pyqt_app.pages.analytics_page',
     
     # Стандартные библиотеки
     'pathlib',

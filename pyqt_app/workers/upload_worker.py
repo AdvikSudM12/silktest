@@ -113,7 +113,8 @@ class UploadWorker(QThread):
             
             # Подготавливаем переменные окружения
             env = os.environ.copy()
-            env_file = os.path.join(self.script_manager.root_dir, '.env')
+            from ..path_manager import get_env_file_path
+            env_file = str(get_env_file_path())
             
             if os.path.exists(env_file):
                 self.emit_progress("📄 Загрузка переменных окружения...", "init")

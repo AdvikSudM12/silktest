@@ -596,7 +596,8 @@ class AnalyticsPage(BasePage):
         """Получение реальной статистики из Excel файла"""
         try:
             # Читаем paths.json для получения пути к Excel файлу
-            paths_file = os.path.join(os.path.dirname(__file__), "..", "data", "paths.json")
+            from ..path_manager import get_config_file_path
+            paths_file = str(get_config_file_path('paths.json'))
             if os.path.exists(paths_file):
                 with open(paths_file, 'r', encoding='utf-8') as f:
                     paths_data = json.load(f)
@@ -608,7 +609,7 @@ class AnalyticsPage(BasePage):
                     
                     # Подсчитываем статистику
                     total_releases = len(df) if not df.empty else 0
-                      # Подсчитываем треки (предполагаем, что каждый релиз может иметь несколько треков)
+                    # Подсчитываем треки (предполагаем, что каждый релиз может иметь несколько треков)
                     # Если есть колонка с количеством треков - используем её, иначе считаем по 1 треку на релиз
                     if 'Треки' in df.columns:
                         total_tracks = df['Треки'].sum()

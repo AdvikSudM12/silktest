@@ -33,16 +33,9 @@ except ImportError:
     MACOS_BUILD_AVAILABLE = False
 
 def get_data_directory():
-    """Получает правильную директорию для данных в зависимости от режима запуска"""
-    if MACOS_BUILD_AVAILABLE and is_app_bundle():
-        # App bundle режим - пользовательские данные
-        return get_app_data_dir()
-    else:
-        # Режим разработки - как сейчас
-        import os
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-        os.makedirs(data_dir, exist_ok=True)
-        return data_dir
+    """Получает директорию для данных через централизованный path_manager"""
+    from ..path_manager import get_data_directory as pm_get_data_directory
+    return str(pm_get_data_directory())
 
 class ContainerWithShadow(QFrame):
     """Кастомный виджет-контейнер с эффектом тени"""

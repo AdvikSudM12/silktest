@@ -241,8 +241,9 @@ class LogsDialog(QDialog):
     def load_existing_logs(self):
         """Загрузка существующих логов из файла loguru"""
         try:
-            # Определяем путь к файлу логов
-            self.log_file_path = Path(__file__).parent.parent / "logs" / "file_check_debug.log"
+            # Определяем путь к файлу логов через path_manager
+            from ..path_manager import get_log_file_path
+            self.log_file_path = get_log_file_path()
             
             if not self.log_file_path.exists():
                 return

@@ -36,8 +36,9 @@ class SessionDataManager:
             self.data_dir = get_app_data_dir()
             debug_logger.debug("🍎 Используем пользовательскую папку для сессионных данных")
         else:
-            # Режим разработки - как сейчас
-            self.data_dir = Path(__file__).parent / "data"
+            # Режим разработки - используем path_manager
+            from .path_manager import get_data_directory
+            self.data_dir = get_data_directory()
             debug_logger.debug("💻 Используем локальную папку для сессионных данных")
         
         self.session_file = self.data_dir / "session_analytics.json"
@@ -290,8 +291,9 @@ class SessionDataManager:
             True если очистка успешна
         """
         try:
-            # Определяем путь к папке results
-            results_dir = Path(__file__).parent.parent / "results"
+            # Определяем путь к папке results через path_manager
+            from .path_manager import get_results_directory
+            results_dir = get_results_directory()
             
             if not results_dir.exists():
                 debug_logger.info("📁 Папка results не существует - нечего очищать")

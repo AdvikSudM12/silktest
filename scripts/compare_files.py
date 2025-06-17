@@ -9,11 +9,12 @@ import unicodedata
 import re
 
 # DEBUG: Добавляем логирование для отладки процесса сравнения файлов
-# Импортируем логгер из pyqt_app
+# Импортируем логгер и path_manager из pyqt_app
 import sys
 script_dir = Path(__file__).parent.parent
 sys.path.append(str(script_dir))
 from pyqt_app.logger_config import get_logger
+from pyqt_app.path_manager import get_data_file_path, get_config_file_path, get_results_directory_path
 debug_logger = get_logger("compare_files")
 
 def normalize_filename(filename):
@@ -165,7 +166,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     # Если пути не переданы, загружаем из paths.json
     if not excel_file_path or not directory_path:
         debug_logger.info("🔄 Загружаем пути из paths.json")
-        paths_file = script_dir / 'pyqt_app' / 'data' / 'paths.json'
+        paths_file = get_data_file_path('paths.json')
         debug_logger.debug(f"📍 Путь к paths.json: {paths_file}")
         
         if os.path.exists(paths_file):
@@ -234,7 +235,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     debug_logger.success("✅ Все пути проверены и существуют")
     
     # Создаем директорию results, если её нет
-    results_dir = script_dir / 'results'
+    results_dir = get_results_directory_path()
     debug_logger.debug(f"📁 Директория результатов: {results_dir}")
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
@@ -539,7 +540,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     # Читаем JWT токен менеджера из config.json
     manager_token = 'Не найден'
     try:
-        config_file = script_dir / 'pyqt_app' / 'data' / 'config.json'
+        config_file = get_config_file_path('config.json')
         if os.path.exists(config_file):
             with open(config_file, 'r', encoding='utf-8') as f:
                 config_data = json.load(f)
@@ -601,7 +602,7 @@ def compare_files_with_excel(excel_file_path=None, directory_path=None):
     output_file = results_dir / f"file_comparison_results_{timestamp}.xlsx"
     
     # Создаем папку для постоянного хранения отчетов, если её нет
-    reports_archive_dir = script_dir / 'verification reports'
+    reports_archive_dir = Path(get_results_directory_path()).parent / 'verification reports'
     debug_logger.debug(f"📁 Папка архива отчетов: {reports_archive_dir}")
     if not os.path.exists(reports_archive_dir):
         os.makedirs(reports_archive_dir)

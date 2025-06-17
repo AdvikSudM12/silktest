@@ -1095,18 +1095,10 @@ class UploadPage(BasePage):
         import os
         from datetime import datetime
         
-        # Определяем директорию для данных в зависимости от режима запуска
-        if MACOS_BUILD_AVAILABLE and is_app_bundle():
-            # App bundle режим - пользовательские данные
-            data_dir = get_app_data_dir()
-            debug_logger.debug("🍎 Используем пользовательскую папку для сохранения путей")
-        else:
-            # Режим разработки - как сейчас
-            data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-            os.makedirs(data_dir, exist_ok=True)
-            debug_logger.debug("💻 Используем локальную папку для сохранения путей")
-        
-        paths_file = os.path.join(data_dir, "paths.json")
+        # Используем централизованный path_manager
+        from ..path_manager import get_config_file_path
+        paths_file = str(get_config_file_path('paths.json'))
+        debug_logger.debug(f"💾 Используем путь: {paths_file}")
         
         # Создаем структуру данных для сохранения
         paths_data = {
@@ -1119,7 +1111,7 @@ class UploadPage(BasePage):
             # Добавляем подробную диагностику
             debug_logger.debug(f"💾 Сохранение в файл: {paths_file}")
             debug_logger.debug(f"📊 Данные для сохранения: {paths_data}")
-            debug_logger.debug(f"📁 Директория существует: {os.path.exists(data_dir)}")
+            debug_logger.debug(f"📁 Директория файла существует: {os.path.exists(os.path.dirname(paths_file))}")
             
             with open(paths_file, "w", encoding="utf-8") as f:
                 json.dump(paths_data, f, ensure_ascii=False, indent=4)
@@ -1143,15 +1135,9 @@ class UploadPage(BasePage):
         import json
         import os
         
-        # Определяем директорию для данных в зависимости от режима запуска
-        if MACOS_BUILD_AVAILABLE and is_app_bundle():
-            # App bundle режим - пользовательские данные
-            data_dir = get_app_data_dir()
-        else:
-            # Режим разработки - как сейчас
-            data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-        
-        paths_file = os.path.join(data_dir, "paths.json")
+        # Используем централизованный path_manager
+        from ..path_manager import get_config_file_path
+        paths_file = str(get_config_file_path('paths.json'))
         
         try:
             if os.path.exists(paths_file):
