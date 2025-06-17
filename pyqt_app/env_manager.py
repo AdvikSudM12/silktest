@@ -28,6 +28,7 @@ class EnvManager:
     """Класс для управления .env файлом с токенами из templates.json"""
     
     def __init__(self):
+        self.root_dir = os.path.dirname(os.path.abspath(__file__))
         """Инициализация менеджера"""
         # Определяем пути к файлам в зависимости от режима запуска
         if MACOS_BUILD_AVAILABLE and is_app_bundle():
