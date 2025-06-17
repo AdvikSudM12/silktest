@@ -105,6 +105,12 @@ def add_bin_files():
     return bin_files
 
 # Дополнительные данные для включения в app bundle
+print("📁 Проверяем доступность опциональных папок:")
+verification_reports_exists = (base_dir / 'verification reports').exists()
+results_exists = (base_dir / 'results').exists()
+print(f"   📊 verification reports/: {'✅ найдена' if verification_reports_exists else '❌ отсутствует'}")
+print(f"   📈 results/: {'✅ найдена' if results_exists else '❌ отсутствует'}")
+
 datas = [
     # PyQt ресурсы и данные
     (str(base_dir / 'pyqt_app' / 'resources'), 'pyqt_app/resources'),
@@ -119,11 +125,11 @@ datas = [
     # Python утилиты (включая compare_files.py)
     (str(base_dir / 'scripts'), 'scripts'),
     
-    # Архив отчетов проверки файлов (для compare_files.py)
-    (str(base_dir / 'verification reports'), 'verification reports'),
+    # Архив отчетов проверки файлов (для compare_files.py) - опционально
+    *([((str(base_dir / 'verification reports'), 'verification reports'))] if (base_dir / 'verification reports').exists() else []),
     
-    # Директория результатов обработки
-    (str(base_dir / 'results'), 'results'),
+    # Директория результатов обработки - опционально
+    *([((str(base_dir / 'results'), 'results'))] if (base_dir / 'results').exists() else []),
     
     # Конфигурационные файлы
     (str(base_dir / 'package.json'), '.'),
