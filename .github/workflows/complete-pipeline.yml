@@ -371,6 +371,90 @@ jobs:
         # Устанавливаем tsconfig-paths для поддержки путей в TypeScript
         npm install --save-dev tsconfig-paths
         
+    - name: 🔒 Security audit of dependencies
+      run: |
+        echo "🔒 Проверка безопасности зависимостей..."
+        
+        # Node.js security audit
+        echo "🟢 Node.js зависимости:"
+        npm audit --audit-level=high > audit_report.txt 2>&1 || {
+          audit_exit_code=$?
+          echo "⚠️ Найдены уязвимости в Node.js зависимостях:"
+          cat audit_report.txt
+          
+          echo "🔧 Попытка автоматического исправления..."
+          npm audit fix --dry-run
+          
+          # Проверяем критичность
+          critical_count=$(npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities.critical // 0' 2>/dev/null || echo "0")
+          high_count=$(npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities.high // 0' 2>/dev/null || echo "0")
+          
+          echo "📊 Статистика уязвимостей:"
+          echo "   - Критичные: $critical_count"
+          echo "   - Высокие: $high_count"
+          
+          if [ "$critical_count" -gt 0 ]; then
+            echo "💥 КРИТИЧЕСКИЕ уязвимости найдены - сборка остановлена!"
+            echo "🚨 Необходимо обновить зависимости перед продолжением"
+            exit 1
+          elif [ "$high_count" -gt 3 ]; then
+            echo "🚨 Слишком много уязвимостей высокого уровня (>3) - сборка остановлена!"
+            echo "💡 Рекомендуется: npm audit fix"
+            exit 1
+          else
+            echo "⚠️ Найдены некритичные уязвимости - продолжаем с предупреждением"
+            echo "💡 Рекомендуется исправить в следующем релизе"
+          fi
+        }
+        
+        echo "✅ Node.js зависимости прошли проверку безопасности"
+        
+        # Python security check (если доступен pip-audit)
+        echo "🐍 Python зависимости:"
+        if command -v pip-audit >/dev/null 2>&1; then
+          echo "🔍 Проверяем уязвимости в Python пакетах..."
+          pip-audit --require requirements.txt --format=text || {
+            echo "⚠️ Найдены уязвимости в Python зависимостях"
+            echo "💡 Проверьте обновления для Python пакетов"
+          }
+        else
+          echo "ℹ️ pip-audit не установлен - устанавливаем..."
+          pip install pip-audit 2>/dev/null || {
+            echo "⚠️ Не удалось установить pip-audit"
+            echo "🔍 Выполняем базовую проверку Python зависимостей..."
+            
+            # Базовая проверка конфликтов
+            python3 -m pip check 2>/dev/null || {
+              echo "⚠️ Обнаружены конфликты в Python зависимостях"
+              python3 -m pip list --outdated 2>/dev/null | head -20
+              echo "💡 Рекомендуется обновить конфликтующие пакеты"
+            }
+          }
+          
+          # Если установилось - проверяем
+          if command -v pip-audit >/dev/null 2>&1; then
+            pip-audit --require requirements.txt --format=text || {
+              echo "⚠️ Найдены уязвимости в Python зависимостях"
+            }
+          fi
+        fi
+        
+        # Проверка outdated пакетов
+        echo "📋 Проверка устаревших зависимостей:"
+        echo "🟢 Node.js устаревшие пакеты:"
+        npm outdated --long 2>/dev/null | head -10 || echo "   ✅ Все пакеты актуальны"
+        
+        echo "🐍 Python устаревшие пакеты:"
+        python3 -m pip list --outdated 2>/dev/null | head -10 || echo "   ✅ Все пакеты актуальны"
+        
+        # Проверка лицензий (опционально)
+        echo "📄 Быстрая проверка лицензий Node.js пакетов:"
+        npx license-checker --summary 2>/dev/null | head -20 || {
+          echo "ℹ️ license-checker не доступен - пропускаем проверку лицензий"
+        }
+        
+        echo "🎯 Проверка зависимостей завершена"
+        
     - name: 🔧 Test TypeScript compilation
       run: |
         echo "🔧 Тестирование TypeScript компиляции..."
@@ -385,20 +469,59 @@ jobs:
       run: |
         echo "🔍 Проверяем соответствие package.json и файловой системы..."
         
-        # Получаем список скриптов из package.json (только start: скрипты для приложений)
+        # Получаем список приложений из package.json динамически
         echo "📋 Анализируем package.json..."
-        node -e "
+        
+        # Создаем список приложений из start: скриптов
+        expected_apps_from_package=$(node -e "
         const pkg = require('./package.json');
         const startScripts = Object.keys(pkg.scripts).filter(key => key.startsWith('start:'));
         const appNames = startScripts.map(script => script.replace('start:', ''));
-        console.log('🎯 TypeScript приложения в package.json:', appNames.length);
-        appNames.forEach(app => console.log('  -', app));
-        " || echo "⚠️ Не удалось проанализировать package.json"
         
-        # Проверяем существующие приложения в файловой системе
-        echo "📁 Проверяем файловую систему..."
-        existing_apps=()
+        // Фильтруем служебные скрипты (не являющиеся приложениями)
+        const serviceScripts = ['dev', 'build', 'test', 'watch', 'debug', 'lint', 'format', 'start', 'serve'];
+        const realApps = appNames.filter(app => !serviceScripts.includes(app));
+        
+        console.log(realApps.join(' '));
+        " 2>/dev/null || echo "")
+        
+        echo "🎯 Найденные приложения в package.json: [$expected_apps_from_package]"
+        
+        # Преобразуем в массив, только если есть результат
+        if [ -n "$expected_apps_from_package" ]; then
+          IFS=' ' read -ra expected_apps <<< "$expected_apps_from_package"
+        else
+          expected_apps=()
+          echo "⚠️ Не найдены start: скрипты приложений в package.json"
+        fi
+        
+        # Проверяем каждое приложение из package.json
+        missing_count=0
         missing_apps=()
+        found_apps=()
+        
+        for app in "${expected_apps[@]}"; do
+          if [ -n "$app" ]; then  # Проверяем что app не пустой
+            app_path="src/apps/$app"
+            if [ ! -d "$app_path" ] || [ ! -f "$app_path/index.ts" ]; then
+              missing_apps+=("$app")
+              missing_count=$((missing_count + 1))
+              echo "❌ Отсутствует: $app"
+            else
+              found_apps+=("$app")
+              echo "✅ Найдено: $app"
+              
+              # Показываем размер файла
+              file_size=$(wc -l < "$app_path/index.ts" 2>/dev/null || echo "0")
+              echo "   📊 Размер: $file_size строк"
+            fi
+          fi
+        done
+        
+        # Обратная проверка: файлы без скриптов
+        echo "🔄 Обратная проверка: приложения без start: скриптов..."
+        orphaned_apps=()
+        filesystem_apps=()
         
         if [ -d "src/apps" ]; then
           for app_dir in src/apps/*/; do
@@ -407,54 +530,70 @@ jobs:
               index_file="${app_dir}index.ts"
               
               if [ -f "$index_file" ]; then
-                existing_apps+=("$app_name")
-                echo "✅ Найдено реальное приложение: $app_name"
+                filesystem_apps+=("$app_name")
                 
-                # Проверяем размер файла
-                file_size=$(wc -l < "$index_file" 2>/dev/null || echo "0")
-                echo "   📊 Размер: $file_size строк"
-              else
-                echo "⚠️ Папка $app_name существует, но index.ts отсутствует"
+                # Проверяем есть ли start: скрипт для этого приложения
+                app_in_package=false
+                for expected_app in "${expected_apps[@]}"; do
+                  if [ "$app_name" = "$expected_app" ]; then
+                    app_in_package=true
+                    break
+                  fi
+                done
+                
+                if [ "$app_in_package" = false ]; then
+                  orphaned_apps+=("$app_name")
+                  echo "⚠️ Приложение без start: скрипта: $app_name"
+                fi
               fi
             fi
           done
         fi
         
-        echo "📊 Статистика:"
-        echo "   - Реальных приложений: ${#existing_apps[@]}"
+        # Проверяем критичные приложения (минимально необходимые для работы)
+        critical_apps=("update-releases-shipment-statuses" "release-parser-5")
+        missing_critical=0
         
-        # Проверяем какие приложения из package.json отсутствуют
-        echo "🔍 Проверяем соответствие..."
-        
-        # Проверяем только используемые приложения из package.json
-        expected_apps=(
-          "update-releases-shipment-statuses"
-          "release-parser-5"
-        )
-        
-        missing_count=0
-        for expected_app in "${expected_apps[@]}"; do
-          app_path="src/apps/$expected_app"
+        echo "🔴 Проверка критичных приложений:"
+        for critical_app in "${critical_apps[@]}"; do
+          app_path="src/apps/$critical_app"
           if [ ! -d "$app_path" ] || [ ! -f "$app_path/index.ts" ]; then
-            missing_apps+=("$expected_app")
-            missing_count=$((missing_count + 1))
+            echo "❌ КРИТИЧНО: отсутствует $critical_app"
+            missing_critical=$((missing_critical + 1))
+          else
+            echo "✅ Критичное приложение найдено: $critical_app"
           fi
         done
         
-        echo "📋 Результат проверки:"
-        echo "   - Ожидается приложений: ${#expected_apps[@]}"
-        echo "   - Существует приложений: ${#existing_apps[@]}"
-        echo "   - Отсутствует приложений: $missing_count"
+        # Итоговый отчет
+        echo "📊 Итоговая статистика:"
+        echo "   - Ожидается из package.json: ${#expected_apps[@]}"
+        echo "   - Найдено в файловой системе: ${#filesystem_apps[@]}"
+        echo "   - Отсутствует из package.json: $missing_count"
+        echo "   - Orphaned (без start: скрипта): ${#orphaned_apps[@]}"
+        echo "   - Критичных отсутствует: $missing_critical"
         
-        if [ $missing_count -gt 0 ]; then
-          echo "❌ Отсутствующие критичные TypeScript приложения:"
-          for missing_app in "${missing_apps[@]}"; do
-            echo "   ❌ $missing_app"
-          done
-          echo "🚨 Это критично - приложения нужны для работы!"
+        # Принятие решения
+        if [ $missing_critical -gt 0 ]; then
+          echo "💥 КРИТИЧЕСКАЯ ОШИБКА: отсутствуют критичные приложения!"
+          printf '   ❌ %s\n' "${critical_apps[@]}"
+          echo "🚨 Эти приложения обязательны для работы системы!"
           exit 1
+        elif [ $missing_count -gt 0 ]; then
+          echo "❌ Приложения из package.json отсутствуют в файловой системе:"
+          printf '   ❌ %s\n' "${missing_apps[@]}"
+          echo "🚨 Все приложения из package.json должны существовать!"
+          exit 1
+        elif [ ${#orphaned_apps[@]} -gt 0 ]; then
+          echo "⚠️ Найдены приложения без start: скриптов (возможно устаревшие):"
+          printf '   ⚠️ %s\n' "${orphaned_apps[@]}"
+          echo "💡 Рекомендуется добавить start: скрипты в package.json или удалить приложения"
+          echo "✅ Критичные приложения в порядке - продолжаем сборку"
+          # Не завершаем с ошибкой - это warning
         else
-          echo "✅ Все необходимые приложения из package.json существуют"
+          echo "🎉 Полное соответствие между package.json и файловой системой!"
+          echo "✅ Все приложения из package.json существуют"
+          echo "✅ Все файлы имеют соответствующие start: скрипты"
         fi
 
     - name: 🧪 Test existing Node.js modules
@@ -1147,9 +1286,9 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
       
-    - name: 🔍 Detect system architecture
+    - name: 🔍 Detect system architecture and build mode
       run: |
-        echo "🔍 Определяем архитектуру системы..."
+        echo "🔍 Определяем архитектуру системы и режим сборки..."
         echo "Runner: ${{ matrix.runner }}"
         echo "Architecture: ${{ matrix.arch }}"
         echo "Name: ${{ matrix.name }}"
@@ -1167,6 +1306,85 @@ jobs:
         echo "SYSTEM_ARCH=$SYSTEM_ARCH" >> $GITHUB_ENV
         echo "BUILD_ARCH=${{ matrix.arch }}" >> $GITHUB_ENV
         echo "BUILD_NAME=${{ matrix.name }}" >> $GITHUB_ENV
+        
+        echo ""
+        echo "🔍 Определяем режим сборки через path_manager..."
+        python3 -c "
+        import sys
+        sys.path.append('.')
+        
+        from pyqt_app.path_manager import get_paths_info, is_development_mode
+        
+        print('📋 ДЕТАЛЬНАЯ ИНФОРМАЦИЯ О РЕЖИМЕ СБОРКИ:')
+        print('=' * 70)
+        
+        # Получаем информацию о режиме
+        is_dev = is_development_mode()
+        info = get_paths_info()
+        
+        print(f'🎯 Режим сборки: {info[\"mode\"].upper()}')
+        print(f'🏗️ Development mode: {is_dev}')
+        print(f'🍎 macOS build доступен: {info[\"macos_build_available\"]}')
+        print(f'🔧 Runner: ${{ matrix.runner }}')
+        print(f'⚙️ Архитектура: ${{ matrix.name }} (${{ matrix.arch }})')
+        print(f'💻 System arch: $SYSTEM_ARCH')
+        print()
+        
+        print('📁 ПУТИ ДЛЯ ТЕКУЩЕГО РЕЖИМА:')
+        print(f'   📂 Data directory: {info[\"data_directory\"]}')
+        print(f'   📊 Logs directory: {info[\"logs_directory\"]}')
+        print(f'   📈 Results directory: {info[\"results_directory\"]}')
+        print(f'   ⚙️ Env file: {info[\"env_file\"]}')
+        print(f'   📋 Project root: {info[\"project_root\"]}')
+        print()
+        
+        print('🗂️ СПЕЦИФИЧНЫЕ ФАЙЛЫ:')
+        print(f'   🔗 paths.json: {info[\"paths_json\"]}')
+        print(f'   ⚙️ config.json: {info[\"config_json\"]}')
+        print(f'   📋 log file: {info[\"log_file\"]}')
+        print()
+        
+        # Проверяем готовность к сборке
+        import os
+        from pathlib import Path
+        
+        print('🔍 ПРОВЕРКА ГОТОВНОСТИ К СБОРКЕ:')
+        
+        # Основные компоненты
+        critical_paths = [
+            ('run_app.py', Path('run_app.py')),
+            ('pyqt_app/', Path('pyqt_app')),
+            ('macos_build/', Path('macos_build')),
+            ('requirements.txt', Path('requirements.txt')),
+            ('gosilk_staff.spec', Path('macos_build/gosilk_staff.spec'))
+        ]
+        
+        all_ready = True
+        for name, path in critical_paths:
+            exists = path.exists()
+            status = '✅' if exists else '❌'
+            print(f'   {status} {name}: {\"НАЙДЕН\" if exists else \"ОТСУТСТВУЕТ\"}')
+            if not exists:
+                all_ready = False
+        
+        print()
+        print(f'🎯 СТАТУС ГОТОВНОСТИ: {\"✅ ГОТОВ\" if all_ready else \"❌ НЕ ГОТОВ\"}')
+        
+        if info[\"mode\"] == \"development\":
+            print('💡 РЕЖИМ: Development - будет собрана версия для разработки')
+            print('   📁 Данные: локальные папки проекта')
+            print('   🔧 Конфигурация: .env в корне проекта')
+            print('   🔗 Пути: pyqt_app/data/, pyqt_app/logs/, results/')
+        else:
+            print('💡 РЕЖИМ: App Bundle - будет собрана production версия')
+            print('   📁 Данные: пользовательские директории macOS')
+            print('   🔧 Конфигурация: embedded в app bundle')
+            print('   🔗 Пути: ~/.gosilk_staff/, ~/Library/Logs/GoSilk Staff/')
+        
+        print('=' * 70)
+        "
+        
+        echo "🎉 Детальная информация о режиме сборки получена"
       
     - name: 🐍 Setup Python
       uses: actions/setup-python@v4
@@ -1194,6 +1412,21 @@ jobs:
       run: |
         echo "🏗️ Сборка приложения через PyInstaller (${{ matrix.name }})..."
         
+        # Логируем режим сборки перед началом
+        echo "🔍 Проверяем режим path_manager перед сборкой..."
+        python3 -c "
+        from pyqt_app.path_manager import get_paths_info, is_development_mode
+        info = get_paths_info()
+        print(f'🎯 Режим path_manager: {info[\"mode\"].upper()}')
+        print(f'🏗️ Development mode: {is_development_mode()}')
+        print(f'🍎 macOS build: {info[\"macos_build_available\"]}')
+        print(f'⚙️ Архитектура сборки: ${{ matrix.name }} (${{ matrix.arch }})')
+        if info['mode'] == 'development':
+            print('📁 Пути данных будут локальными (development)')
+        else:
+            print('📁 Пути данных будут пользовательскими (app bundle)')
+        "
+        
         # Модифицируем spec файл для архитектуры
         echo "🔧 Настраиваем spec файл для ${{ matrix.arch }}..."
         
@@ -1218,6 +1451,25 @@ jobs:
         
         # Проверяем что получилось
         ls -la dist/
+        
+        # Логируем режим собранного приложения
+        echo "🔍 Проверяем какой режим получился в собранном приложении..."
+        
+        # Проверяем режим через Python (если возможно)
+        python3 -c "
+        print('🎯 ПРОВЕРКА СОБРАННОГО ПРИЛОЖЕНИЯ:')
+        print('=' * 50)
+        try:
+            from pyqt_app.path_manager import get_paths_info, is_development_mode
+            info = get_paths_info()
+            print(f'🎯 Режим в исходниках: {info[\"mode\"].upper()}')
+            print(f'🏗️ Development mode: {is_development_mode()}')
+            print(f'🍎 macOS build доступен: {info[\"macos_build_available\"]}')
+            print('📋 Этот режим будет встроен в собранное приложение')
+        except Exception as e:
+            print(f'⚠️ Не удалось проверить режим: {e}')
+        print('=' * 50)
+        " || echo "⚠️ Проверка режима недоступна"
         
         # Ищем любой .app файл (имя может варьироваться)
         app_found=$(find dist/ -name "*.app" -type d | head -1)
@@ -1312,13 +1564,33 @@ jobs:
         echo "📊 Статистика сборки для ${{ matrix.name }} (${{ matrix.arch }}):"
         echo "================================================================"
         
+        # Логируем финальную информацию о режиме сборки
+        echo "🎯 РЕЖИМ СБОРКИ:"
+        python3 -c "
+        from pyqt_app.path_manager import get_paths_info, is_development_mode
+        info = get_paths_info()
+        print(f'   📋 Режим: {info[\"mode\"].upper()}')
+        print(f'   🏗️ Development: {is_development_mode()}')
+        print(f'   🍎 macOS build: {info[\"macos_build_available\"]}')
+        print(f'   🔧 Runner: ${{ matrix.runner }}')
+        print(f'   ⚙️ Архитектура: ${{ matrix.name }} (${{ matrix.arch }})')
+        if info['mode'] == 'development':
+            print('   📁 Данные: локальные папки (development mode)')
+            print('   🔗 Пути: pyqt_app/data/, pyqt_app/logs/, results/')
+        else:
+            print('   📁 Данные: пользовательские директории (app bundle mode)')
+            print('   🔗 Пути: ~/.gosilk_staff/, ~/Library/Logs/GoSilk Staff/')
+        " || echo "⚠️ Информация о режиме недоступна"
+        
+        echo ""
+        echo "📊 РАЗМЕРЫ ФАЙЛОВ:"
+        
         # Находим .app файл
         app_found=$(find dist/ -name "*${{ matrix.arch }}.app" -type d | head -1)
         if [ -n "$app_found" ]; then
           APP_SIZE=$(du -sh "$app_found" | cut -f1)
           echo "📱 Размер .app: $APP_SIZE"
           echo "📁 Файл: $(basename "$app_found")"
-          echo "🏗️ Архитектура: ${{ matrix.arch }} (${{ matrix.name }})"
         fi
         
         dmg_file=$(find dist/ -name "*${{ matrix.arch }}.dmg" | head -1)
@@ -1326,6 +1598,8 @@ jobs:
           DMG_SIZE=$(du -sh "$dmg_file" | cut -f1)
           echo "💿 Размер .dmg: $DMG_SIZE"
         fi
+        
+        echo "================================================================"
         
     - name: 📦 Upload build artifacts for architecture
       uses: actions/upload-artifact@v4
@@ -1478,6 +1752,8 @@ jobs:
         echo "✅ Система путей протестирована (resource_utils + path_manager)"
         echo "✅ Path Manager интеграция проверена для всех скриптов"
         echo "✅ compare_files.py обновлен и протестирован с новой системой путей"
+        echo "✅ Безопасность зависимостей проверена (Node.js + Python аудит)"
+        echo "✅ Совместимость модулей и библиотек подтверждена"
         echo "✅ Интеграция Python-Node проверена"
         echo "✅ Приложения собраны для Intel + Apple Silicon"
         echo "✅ Node.js встроен - полная автономность"

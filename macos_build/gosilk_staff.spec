@@ -108,20 +108,26 @@ def add_bin_files():
 datas = [
     # PyQt ресурсы и данные
     (str(base_dir / 'pyqt_app' / 'resources'), 'pyqt_app/resources'),
-    (str(base_dir / 'pyqt_app' / 'data'), 'pyqt_app/data'),
+    (str(base_dir / 'pyqt_app' / 'data'), 'pyqt_app/data'),  # config.json, paths.json, templates.json
     
     # macOS build утилиты (включая новый resource_utils.py)
     (str(base_dir / 'macos_build' / 'resource_utils.py'), 'macos_build/'),
     
-    # Скомпилированный JavaScript из TypeScript
+    # TypeScript приложения с файлами данных (включает src/apps/*/files/)
     (str(base_dir / 'src'), 'src'),
+    
+    # Python утилиты (включая compare_files.py)
+    (str(base_dir / 'scripts'), 'scripts'),
+    
+    # Архив отчетов проверки файлов (для compare_files.py)
+    (str(base_dir / 'verification reports'), 'verification reports'),
+    
+    # Директория результатов обработки
+    (str(base_dir / 'results'), 'results'),
     
     # Конфигурационные файлы
     (str(base_dir / 'package.json'), '.'),
     (str(base_dir / 'tsconfig.json'), '.'),
-    
-    # Python скрипты утилит
-    (str(base_dir / 'scripts'), 'scripts'),
     
     # Шаблон конфигурации
     (str(base_dir / 'macos_build' / 'env_template.txt'), '.'),
@@ -364,6 +370,8 @@ print("   - Добавлена умная обработка node_modules")
 print("   - Добавлена поддержка libnode.dylib для macOS")
 print(f"   - Автоматически включено {len(pyqt6_submodules)} PyQt6 подмодулей")
 print("   - Исключены проблемные пути в node_modules")
+print("   - Добавлены недостающие пути: verification reports/, results/")
+print("   - Улучшены комментарии к критичным путям данных")
 
 # ВАЖНО: После сборки нужно сделать Node.js исполняемые файлы исполняемыми
 # chmod +x "GoSilk Staff.app/Contents/Resources/node/bin/*"
