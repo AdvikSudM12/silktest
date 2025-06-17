@@ -14,30 +14,28 @@ base_dir = Path(os.getcwd())
 
 # Функция для безопасного сбора node_modules с исключением проблемных путей
 def collect_node_modules(base_dir):
-    """Собирает все файлы и папки из node_modules, исключая проблемные пути"""
+    """Собирает все файлы и папки из node_modules, автоматически исключая вложенные node_modules"""
     node_modules_path = base_dir / 'node_modules'
     if not node_modules_path.exists():
         return []
     
     result = []
-    # Исключаем проблемные пути
-    excluded_paths = ['node_modules/adler-32/node_modules']
     
     # Собираем все директории первого уровня в node_modules
     dirs = [d for d in node_modules_path.iterdir() if d.is_dir()]
     
     for d in dirs:
-        # Проверяем, не является ли путь исключенным
-        if any(d.name.startswith(ex.split('/')[-1]) for ex in excluded_paths):
-            # Для adler-32 добавляем только основные файлы, исключая node_modules
-            if d.name == 'adler-32':
-                # Добавляем основные файлы adler-32, но не его node_modules
-                for item in d.iterdir():
-                    if item.name != 'node_modules':
-                        rel_path = f'node_modules/{d.name}/{item.name}'
-                        result.append((str(item), rel_path))
+        # Проверяем есть ли вложенные node_modules в этом модуле
+        nested_node_modules = d / 'node_modules'
+        if nested_node_modules.exists():
+            print(f"   ⚠️ Найдены вложенные node_modules в {d.name}, включаем только основные файлы")
+            # Добавляем только основные файлы модуля, исключая вложенные node_modules
+            for item in d.iterdir():
+                if item.name != 'node_modules':
+                    rel_path = f'node_modules/{d.name}/{item.name}'
+                    result.append((str(item), rel_path))
         else:
-            # Для остальных директорий добавляем всё содержимое
+            # Для модулей без вложенных node_modules добавляем всё содержимое
             result.append((str(d), f'node_modules/{d.name}'))
     
     return result
