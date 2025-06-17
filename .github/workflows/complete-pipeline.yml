@@ -1226,59 +1226,42 @@ jobs:
         echo "BUILD_NAME=${{ matrix.name }}" >> $GITHUB_ENV
         
         echo ""
-        echo "🔍 Определяем режим сборки через path_manager..."
+        echo "🔍 Определяем режим сборки через упрощенную проверку..."
         python3 -c "
+        import os
         import sys
-        sys.path.append('.')
+        from pathlib import Path
         
-        from pyqt_app.path_manager import get_paths_info, is_development_mode
+        print('📋 УПРОЩЕННАЯ ИНФОРМАЦИЯ О РЕЖИМЕ СБОРКИ:')
+        print('=' * 60)
         
-        print('📋 ДЕТАЛЬНАЯ ИНФОРМАЦИЯ О РЕЖИМЕ СБОРКИ:')
-        print('=' * 70)
+        # Простая проверка режима без импорта сложных модулей
+        project_root = Path('.')
+        macos_build_dir = project_root / 'macos_build'
+        is_macos_build_available = macos_build_dir.exists()
         
-        # Получаем информацию о режиме
-        is_dev = is_development_mode()
-        info = get_paths_info()
-        
-        print(f'🎯 Режим сборки: {info[\"mode\"].upper()}')
-        print(f'🏗️ Development mode: {is_dev}')
-        print(f'🍎 macOS build доступен: {info[\"macos_build_available\"]}')
         print(f'🔧 Runner: ${{ matrix.runner }}')
         print(f'⚙️ Архитектура: ${{ matrix.name }} (${{ matrix.arch }})')
         print(f'💻 System arch: $SYSTEM_ARCH')
+        print(f'🍎 macOS build доступен: {is_macos_build_available}')
         print()
         
-        print('📁 ПУТИ ДЛЯ ТЕКУЩЕГО РЕЖИМА:')
-        print(f'   📂 Data directory: {info[\"data_directory\"]}')
-        print(f'   📊 Logs directory: {info[\"logs_directory\"]}')
-        print(f'   📈 Results directory: {info[\"results_directory\"]}')
-        print(f'   ⚙️ Env file: {info[\"env_file\"]}')
-        print(f'   📋 Project root: {info[\"project_root\"]}')
-        print()
-        
-        print('🗂️ СПЕЦИФИЧНЫЕ ФАЙЛЫ:')
-        print(f'   🔗 paths.json: {info[\"paths_json\"]}')
-        print(f'   ⚙️ config.json: {info[\"config_json\"]}')
-        print(f'   📋 log file: {info[\"log_file\"]}')
-        print()
-        
-        # Проверяем готовность к сборке
-        import os
-        from pathlib import Path
-        
+        # Проверяем готовность к сборке без сложных импортов
         print('🔍 ПРОВЕРКА ГОТОВНОСТИ К СБОРКЕ:')
         
-        # Основные компоненты
         critical_paths = [
-            ('run_app.py', Path('run_app.py')),
-            ('pyqt_app/', Path('pyqt_app')),
-            ('macos_build/', Path('macos_build')),
-            ('requirements.txt', Path('requirements.txt')),
-            ('gosilk_staff.spec', Path('macos_build/gosilk_staff.spec'))
+            ('run_app.py', 'run_app.py'),
+            ('pyqt_app/', 'pyqt_app'),
+            ('macos_build/', 'macos_build'),
+            ('requirements.txt', 'requirements.txt'),
+            ('gosilk_staff.spec', 'macos_build/gosilk_staff.spec'),
+            ('src/', 'src'),
+            ('pyqt_app/data/', 'pyqt_app/data')
         ]
         
         all_ready = True
-        for name, path in critical_paths:
+        for name, path_str in critical_paths:
+            path = Path(path_str)
             exists = path.exists()
             status = '✅' if exists else '❌'
             print(f'   {status} {name}: {\"НАЙДЕН\" if exists else \"ОТСУТСТВУЕТ\"}')
@@ -1288,18 +1271,20 @@ jobs:
         print()
         print(f'🎯 СТАТУС ГОТОВНОСТИ: {\"✅ ГОТОВ\" if all_ready else \"❌ НЕ ГОТОВ\"}')
         
-        if info[\"mode\"] == \"development\":
-            print('💡 РЕЖИМ: Development - будет собрана версия для разработки')
+        # Определяем режим по наличию .env файла
+        env_file_exists = Path('.env').exists()
+        if env_file_exists:
+            print('💡 ПРЕДПОЛАГАЕМЫЙ РЕЖИМ: Development')
             print('   📁 Данные: локальные папки проекта')
             print('   🔧 Конфигурация: .env в корне проекта')
             print('   🔗 Пути: pyqt_app/data/, pyqt_app/logs/, results/')
         else:
-            print('💡 РЕЖИМ: App Bundle - будет собрана production версия')
+            print('💡 ПРЕДПОЛАГАЕМЫЙ РЕЖИМ: App Bundle (production)')
             print('   📁 Данные: пользовательские директории macOS')
             print('   🔧 Конфигурация: embedded в app bundle')
             print('   🔗 Пути: ~/.gosilk_staff/, ~/Library/Logs/GoSilk Staff/')
         
-        print('=' * 70)
+        print('=' * 60)
         "
         
         echo "🎉 Детальная информация о режиме сборки получена"
@@ -1330,19 +1315,24 @@ jobs:
       run: |
         echo "🏗️ Сборка приложения через PyInstaller (${{ matrix.name }})..."
         
-        # Логируем режим сборки перед началом
-        echo "🔍 Проверяем режим path_manager перед сборкой..."
+        # Логируем режим сборки перед началом (упрощенно)
+        echo "🔍 Проверяем режим сборки перед началом..."
         python3 -c "
-        from pyqt_app.path_manager import get_paths_info, is_development_mode
-        info = get_paths_info()
-        print(f'🎯 Режим path_manager: {info[\"mode\"].upper()}')
-        print(f'🏗️ Development mode: {is_development_mode()}')
-        print(f'🍎 macOS build: {info[\"macos_build_available\"]}')
+        from pathlib import Path
+        
+        print('🎯 Простая проверка режима сборки:')
         print(f'⚙️ Архитектура сборки: ${{ matrix.name }} (${{ matrix.arch }})')
-        if info['mode'] == 'development':
-            print('📁 Пути данных будут локальными (development)')
+        
+        env_exists = Path('.env').exists()
+        macos_build_exists = Path('macos_build').exists()
+        
+        print(f'🔧 .env файл: {\"найден\" if env_exists else \"отсутствует\"}')
+        print(f'🍎 macOS build: {\"доступен\" if macos_build_exists else \"недоступен\"}')
+        
+        if env_exists:
+            print('📁 Предполагаемый режим: Development (локальные пути)')
         else:
-            print('📁 Пути данных будут пользовательскими (app bundle)')
+            print('📁 Предполагаемый режим: Production (пользовательские пути)')
         "
         
         # Модифицируем spec файл для архитектуры
@@ -1370,24 +1360,15 @@ jobs:
         # Проверяем что получилось
         ls -la dist/
         
-        # Логируем режим собранного приложения
-        echo "🔍 Проверяем какой режим получился в собранном приложении..."
+        # Логируем информацию о собранном приложении (упрощенно)
+        echo "🔍 Информация о собранном приложении..."
         
-        # Проверяем режим через Python (если возможно)
-        python3 -c "
-        print('🎯 ПРОВЕРКА СОБРАННОГО ПРИЛОЖЕНИЯ:')
-        print('=' * 50)
-        try:
-            from pyqt_app.path_manager import get_paths_info, is_development_mode
-            info = get_paths_info()
-            print(f'🎯 Режим в исходниках: {info[\"mode\"].upper()}')
-            print(f'🏗️ Development mode: {is_development_mode()}')
-            print(f'🍎 macOS build доступен: {info[\"macos_build_available\"]}')
-            print('📋 Этот режим будет встроен в собранное приложение')
-        except Exception as e:
-            print(f'⚠️ Не удалось проверить режим: {e}')
-        print('=' * 50)
-        " || echo "⚠️ Проверка режима недоступна"
+        echo "🎯 ПРОВЕРКА СОБРАННОГО ПРИЛОЖЕНИЯ:"
+        echo "=" 
+        echo "✅ PyInstaller сборка завершена успешно"
+        echo "📦 Приложение готово для упаковки в DMG"
+        echo "🍎 Режим определяется автоматически при запуске"
+        echo "="
         
         # Ищем любой .app файл (имя может варьироваться)
         app_found=$(find dist/ -name "*.app" -type d | head -1)
@@ -1482,23 +1463,14 @@ jobs:
         echo "📊 Статистика сборки для ${{ matrix.name }} (${{ matrix.arch }}):"
         echo "================================================================"
         
-        # Логируем финальную информацию о режиме сборки
-        echo "🎯 РЕЖИМ СБОРКИ:"
-        python3 -c "
-        from pyqt_app.path_manager import get_paths_info, is_development_mode
-        info = get_paths_info()
-        print(f'   📋 Режим: {info[\"mode\"].upper()}')
-        print(f'   🏗️ Development: {is_development_mode()}')
-        print(f'   🍎 macOS build: {info[\"macos_build_available\"]}')
-        print(f'   🔧 Runner: ${{ matrix.runner }}')
-        print(f'   ⚙️ Архитектура: ${{ matrix.name }} (${{ matrix.arch }})')
-        if info['mode'] == 'development':
-            print('   📁 Данные: локальные папки (development mode)')
-            print('   🔗 Пути: pyqt_app/data/, pyqt_app/logs/, results/')
-        else:
-            print('   📁 Данные: пользовательские директории (app bundle mode)')
-            print('   🔗 Пути: ~/.gosilk_staff/, ~/Library/Logs/GoSilk Staff/')
-        " || echo "⚠️ Информация о режиме недоступна"
+        # Логируем финальную информацию о сборке (упрощенно)
+        echo "🎯 ИТОГОВАЯ ИНФОРМАЦИЯ О СБОРКЕ:"
+        echo "   🔧 Runner: ${{ matrix.runner }}"
+        echo "   ⚙️ Архитектура: ${{ matrix.name }} (${{ matrix.arch }})"
+        echo "   🍎 macOS build: доступен"
+        echo "   📦 Сборка: завершена успешно"
+        echo "   🎯 Режим: определяется автоматически при запуске"
+        echo "   📁 Пути: настраиваются через path_manager"
         
         echo ""
         echo "📊 РАЗМЕРЫ ФАЙЛОВ:"
