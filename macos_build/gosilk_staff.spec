@@ -3,12 +3,44 @@
 import os
 import shutil
 from pathlib import Path
+import platform
+from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
 # Определяем базовую директорию (корень проекта)
 # В PyInstaller контексте используем os.getcwd() вместо __file__
 base_dir = Path(os.getcwd())
+
+# Функция для безопасного сбора node_modules с исключением проблемных путей
+def collect_node_modules(base_dir):
+    """Собирает все файлы и папки из node_modules, исключая проблемные пути"""
+    node_modules_path = base_dir / 'node_modules'
+    if not node_modules_path.exists():
+        return []
+    
+    result = []
+    # Исключаем проблемные пути
+    excluded_paths = ['node_modules/adler-32/node_modules']
+    
+    # Собираем все директории первого уровня в node_modules
+    dirs = [d for d in node_modules_path.iterdir() if d.is_dir()]
+    
+    for d in dirs:
+        # Проверяем, не является ли путь исключенным
+        if any(d.name.startswith(ex.split('/')[-1]) for ex in excluded_paths):
+            # Для adler-32 добавляем только основные файлы, исключая node_modules
+            if d.name == 'adler-32':
+                # Добавляем основные файлы adler-32, но не его node_modules
+                for item in d.iterdir():
+                    if item.name != 'node_modules':
+                        rel_path = f'node_modules/{d.name}/{item.name}'
+                        result.append((str(item), rel_path))
+        else:
+            # Для остальных директорий добавляем всё содержимое
+            result.append((str(d), f'node_modules/{d.name}'))
+    
+    return result
 
 # Находим Node.js runtime для встраивания
 def find_node_runtime():
@@ -23,6 +55,18 @@ def find_node_runtime():
     if node_executable:
         node_files['node'] = node_executable
         print(f"✅ Найден Node.js: {node_executable}")
+        
+        # 🍎 Специальная обработка для macOS
+        if platform.system() == 'Darwin':
+            # Находим директорию с Node.js
+            node_dir = os.path.dirname(node_executable)
+            # Ищем libnode.dylib
+            lib_node = os.path.join(node_dir, 'libnode.dylib')
+            if os.path.exists(lib_node):
+                node_files['libnode'] = lib_node
+                print(f"✅ Найден libnode.dylib: {lib_node}")
+            else:
+                print("⚠️ libnode.dylib не найден")
     else:
         print("❌ Node.js не найден в системе")
         
@@ -86,36 +130,11 @@ datas = [
 INCLUDE_ALL_NODE_MODULES = True  # Измените на True для включения всех модулей
 
 if INCLUDE_ALL_NODE_MODULES:
-    print("📦 Включаем ВСЕ Node.js модули (может быть медленно и занимать много места)...")
-    node_modules_path = base_dir / 'node_modules'
-    if node_modules_path.exists():
-        # Включаем node_modules, но исключаем проблемные вложенные структуры
-        print("🔧 Копируем node_modules с исключением проблемных путей...")
-        
-        # Создаем безопасную копию node_modules без глубокой вложенности
-        import shutil
-        import tempfile
-        import os
-        
-        # Создаем временную директорию для "плоской" версии node_modules
-        temp_node_modules = base_dir / 'temp_node_modules'
-        if temp_node_modules.exists():
-            shutil.rmtree(temp_node_modules)
-        temp_node_modules.mkdir()
-        
-        # Копируем только первый уровень модулей
-        for item in node_modules_path.iterdir():
-            if item.is_dir() and not item.name.startswith('.'):
-                try:
-                    dest_path = temp_node_modules / item.name
-                    # Копируем только основную структуру, избегая глубокой вложенности
-                    shutil.copytree(item, dest_path, ignore=shutil.ignore_patterns('node_modules'))
-                    print(f"   ✅ Скопирован {item.name}")
-                except Exception as e:
-                    print(f"   ⚠️ Пропущен {item.name}: {e}")
-        
-        datas.append((str(temp_node_modules), 'node_modules'))
-        print(f"   ✅ Включена оптимизированная папка node_modules")
+    print("📦 Используем умную функцию сбора node_modules...")
+    # Используем умную функцию вместо грубого копирования
+    smart_node_modules = collect_node_modules(base_dir)
+    datas.extend(smart_node_modules)
+    print(f"   ✅ Включено модулей через умную функцию: {len(smart_node_modules)}")
 else:
     # Автоматически добавляем только нужные Node.js модули
     print("📦 Определяем необходимые Node.js модули...")
@@ -149,16 +168,21 @@ if node_runtime:
     if 'npx' in node_runtime:
         datas.append((node_runtime['npx'], 'node/bin/'))
         print(f"   ✅ npx -> node/bin/npx")
+        
+    # 🍎 Добавляем libnode.dylib для macOS
+    if 'libnode' in node_runtime:
+        datas.append((node_runtime['libnode'], 'node/bin/'))
+        print(f"   ✅ libnode.dylib -> node/bin/libnode.dylib")
 else:
     print("⚠️ Node.js runtime не найден - приложение будет зависеть от системного Node.js")
 
+# Динамически собираем ВСЕ подмодули PyQt6
+print("🎨 Собираем все подмодули PyQt6...")
+pyqt6_submodules = collect_submodules('PyQt6')
+print(f"   ✅ Найдено PyQt6 подмодулей: {len(pyqt6_submodules)}")
+
 # Скрытые импорты Python модулей
-hiddenimports = [
-    # PyQt6 основные модули
-    'PyQt6.QtCore',
-    'PyQt6.QtWidgets', 
-    'PyQt6.QtGui',
-    
+hiddenimports = pyqt6_submodules + [
     # Логирование и утилиты
     'loguru',
     'pandas',
@@ -318,13 +342,13 @@ app = BUNDLE(
     },
 )
 
-# Очищаем временную папку после сборки
-print("🧹 Очистка временных файлов...")
-temp_node_modules = base_dir / 'temp_node_modules'
-if temp_node_modules.exists():
-    import shutil
-    shutil.rmtree(temp_node_modules)
-    print("   ✅ Временная папка temp_node_modules удалена")
+# Итоговая информация о сборке
+print("🧹 Сборка завершена!")
+print("✅ Изменения:")
+print("   - Добавлена умная обработка node_modules")
+print("   - Добавлена поддержка libnode.dylib для macOS")
+print(f"   - Автоматически включено {len(pyqt6_submodules)} PyQt6 подмодулей")
+print("   - Исключены проблемные пути в node_modules")
 
 # ВАЖНО: После сборки нужно сделать Node.js исполняемые файлы исполняемыми
 # chmod +x "GoSilk Staff.app/Contents/Resources/node/bin/*"
