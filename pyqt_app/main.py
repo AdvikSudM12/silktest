@@ -4,10 +4,14 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QStackedWidget)
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QShortcut, QKeySequence
 
 # Импортируем наши компоненты
 from pyqt_app.components import TabBar
 from pyqt_app.pages import UploadPage, AnalyticsPage, HelpPage, SettingsPage
+
+# Импорт диалогов
+from pyqt_app.dialogs import LogsDialog
 
 # Импорт сессионного менеджера для очистки при закрытии
 from pyqt_app.session_data_manager import session_manager
@@ -43,6 +47,10 @@ class MainWindow(QMainWindow):
         
         # Устанавливаем светлый фон для всего приложения
         self.setStyleSheet("background-color: white;")
+        
+        # Инициализируем диалог логов (но не показываем)
+        self.logs_dialog = None
+        self.setup_logs_shortcut()
         
         # Центральный виджет
         central_widget = QWidget()
@@ -137,6 +145,17 @@ class MainWindow(QMainWindow):
         
         # Принимаем событие закрытия
         event.accept()
+
+    def setup_logs_shortcut(self):
+        """Настройка горячей клавиши F12 для вызова окна логов"""
+        logs_shortcut = QShortcut(QKeySequence("F12"), self)
+        logs_shortcut.activated.connect(self.show_logs_dialog)
+
+    def show_logs_dialog(self):
+        """Показываем окно логов"""
+        if self.logs_dialog is None:
+            self.logs_dialog = LogsDialog()
+        self.logs_dialog.show()
 
 
 if __name__ == "__main__":
